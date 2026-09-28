@@ -76,7 +76,7 @@ mod shader_path_tests {
         let mut reference_time = 0.;
         let mut published = initial;
         for (dt, progress) in [(0.016, 0.), (0.25, 0.), (0., 0.5), (0., 0.5), (0.02, 0.7), (0.05, 0.), (0., 0.4)] {
-            app.world_mut().resource_mut::<Time<Real>>().advance_by(std::time::Duration::from_secs_f64(dt));
+            app.world_mut().resource_mut::<Time<Real>>().advance_by(skate_vfs::time::Duration::from_secs_f64(dt));
             app.world_mut().resource_mut::<super::super::SessionMarker>().progress = progress;
             reference_time += dt;
             while reference_time >= 1. / 60. {

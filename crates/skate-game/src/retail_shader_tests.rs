@@ -110,7 +110,7 @@ fn validate(bindless: bool, prepass: bool, extras: &[&str]) -> naga::Module {
     let probe_source;
     if let Some(ref directory) = experiment {
         let binding_source =
-            std::fs::read_to_string(format!("{directory}/v6-retail_material_bindings.wgsl"))
+            skate_vfs::read_to_string(format!("{directory}/v6-retail_material_bindings.wgsl"))
                 .unwrap();
         composer
             .add_composable_module(ComposableModuleDescriptor {
@@ -121,7 +121,7 @@ fn validate(bindless: bool, prepass: bool, extras: &[&str]) -> naga::Module {
             })
             .unwrap();
         probe_source =
-            std::fs::read_to_string(format!("{directory}/v6-retail_world.wgsl")).unwrap();
+            skate_vfs::read_to_string(format!("{directory}/v6-retail_world.wgsl")).unwrap();
     } else {
         probe_source = String::new();
     }

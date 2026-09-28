@@ -1,6 +1,6 @@
 //! Transport-neutral, bounded snapshot protocol. No platform identity or SDK types.
 use serde::{Deserialize, Serialize};
-use std::time::{Duration, Instant};
+use skate_vfs::time::{Duration, Instant};
 mod codec;
 pub mod lobby;
 pub mod blob;

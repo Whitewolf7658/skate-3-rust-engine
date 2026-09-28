@@ -521,7 +521,7 @@ mod performance_inventory {
         }).collect();
         let shadow_index=crate::retail_render::shadow_visibility::benchmark_bounds(bounds);
         let result = serde_json::json!({"shadow_index":shadow_index,"baseline_batches":baseline.len(),"consolidated_batches":groups.len(),"opaque":opaque,"masked":masked,"blended":blended,"fallback":fallback,"triangles":after.len(),"map_lights":map.lights.len(),"triangle_multiset_preserved":true,"replaced_opaque_shadow_casters":replaced_casters,"opaque_shadow_batches":shadows.batches.len(),"shadow_triangle_multiset_preserved":true,"opaque_shadow_triangles":source_shadow_triangles.len(),"proxy_vertices":proxy_vertices,"proxy_vertex_index_bytes":proxy_vertices*24+source_shadow_triangles.len()*12});
-        std::fs::write(std::env::var_os("SKATE_MAP_INVENTORY_OUT").unwrap(),serde_json::to_vec_pretty(&result).unwrap()).unwrap();
+        skate_vfs::write(std::env::var_os("SKATE_MAP_INVENTORY_OUT").unwrap(),serde_json::to_vec_pretty(&result).unwrap()).unwrap();
     }
     /// Explicit read-only inventory, never initializes Bevy or a GPU. Asset path
     /// stays in the environment; output contains counts/bounds only.
@@ -549,7 +549,7 @@ mod performance_inventory {
             }
         }
         let result=serde_json::json!({"schema":1,"runtime_material_batches":groups.len(),"extent_threshold_metres":[50,100,250,500],"batches_over_threshold":spans,"triangles_in_batches_over_threshold":triangles,"centroid_32m_cells":cells.len(),"note":"Exact current material canonicalization and grouping; no frustum, occlusion or runtime frame measurement"});
-        std::fs::write(std::env::var_os("SKATE_MAP_INVENTORY_OUT").unwrap(),serde_json::to_vec_pretty(&result).unwrap()).unwrap();
+        skate_vfs::write(std::env::var_os("SKATE_MAP_INVENTORY_OUT").unwrap(),serde_json::to_vec_pretty(&result).unwrap()).unwrap();
     }
 }
 
@@ -814,7 +814,7 @@ mod tests {
         metadata.meshes = vec![single];
         let baseline = BoardWorld::with_query_metadata(world.triangles().to_vec(), metadata).unwrap();
         let mut visited = [0usize; 2];
-        let mut times = [std::time::Duration::ZERO; 2];
+        let mut times = [skate_vfs::time::Duration::ZERO; 2];
         for triangle in world.triangles().iter().step_by((world.triangles().len() / 256).max(1)) {
             let p = triangle.triangle.vertices[0];
             let start = Vector3::new(p.x, p.y + 1., p.z);
@@ -823,7 +823,7 @@ mod tests {
             for (i, scene) in [&baseline, world].into_iter().enumerate() {
                 let bounds = scene.line_candidate_bounds(start, end, 0.1);
                 visited[i] += scene.candidate_ranges(bounds).iter().map(|r| r.len()).sum::<usize>();
-                let now = std::time::Instant::now();
+                let now = skate_vfs::time::Instant::now();
                 candidates.push(scene.line_candidates(start, end, 0.1).map(|(id, _)| id).collect::<Vec<_>>());
                 times[i] += now.elapsed();
             }

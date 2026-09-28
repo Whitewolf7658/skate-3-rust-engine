@@ -193,7 +193,7 @@ pub(super) fn benchmark_bounds(bounds: Vec<Aabb>) -> serde_json::Value {
     let mut index = Index::default();
     let count = bounds.len();
     let system_bounds = bounds.clone();
-    let start = std::time::Instant::now();
+    let start = skate_vfs::time::Instant::now();
     index.rebuild(
         bounds
             .into_iter()
@@ -235,7 +235,7 @@ pub(super) fn benchmark_bounds(bounds: Vec<Aabb>) -> serde_json::Value {
         assert_eq!(out, expected);
     }
     let repetitions = 100;
-    let start = std::time::Instant::now();
+    let start = skate_vfs::time::Instant::now();
     for _ in 0..repetitions {
         for f in &frusta {
             out.clear();
@@ -253,7 +253,7 @@ pub(super) fn benchmark_bounds(bounds: Vec<Aabb>) -> serde_json::Value {
         }
     }
     let flat_ms = start.elapsed().as_secs_f64() * 1000.;
-    let start = std::time::Instant::now();
+    let start = skate_vfs::time::Instant::now();
     for _ in 0..repetitions {
         for f in &frusta {
             out.clear();
@@ -325,7 +325,7 @@ fn benchmark_systems(bounds: Vec<Aabb>) -> serde_json::Value {
     let mut upstream_times = vec![];
     for round in 0..5 {
         let mut run = |schedule: &mut bevy::ecs::schedule::Schedule| {
-            let start = std::time::Instant::now();
+            let start = skate_vfs::time::Instant::now();
             for _ in 0..200 {
                 schedule.run(&mut world);
             }

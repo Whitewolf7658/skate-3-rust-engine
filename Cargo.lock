@@ -4737,11 +4737,13 @@ name = "skate-data"
 version = "0.1.0"
 dependencies = [
  "flate2",
+ "ruzstd",
  "serde",
  "serde_json",
  "skate-audio-core",
  "skate-audio-formats",
  "skate-core",
+ "skate-vfs",
  "zstd",
 ]
 
@@ -4751,8 +4753,10 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "blake3",
+ "console_error_panic_hook",
  "half",
  "image",
+ "js-sys",
  "naga",
  "naga_oil",
  "serde",
@@ -4763,7 +4767,10 @@ dependencies = [
  "skate-mods",
  "skate-net",
  "skate-vehicles",
+ "skate-vfs",
  "tracing-log",
+ "wasm-bindgen",
+ "web-sys",
  "wgpu",
 ]
 
@@ -4776,6 +4783,7 @@ dependencies = [
  "serde",
  "serde_json",
  "skate-vehicles",
+ "skate-vfs",
  "zip",
 ]
 
@@ -4788,6 +4796,7 @@ dependencies = [
  "serde",
  "serde_json",
  "skate-core",
+ "skate-vfs",
  "socket2",
 ]
 
@@ -4806,6 +4815,13 @@ dependencies = [
  "rapier3d",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "skate-vfs"
+version = "0.1.0"
+dependencies = [
+ "web-time",
 ]
 
 [[package]]
@@ -5624,6 +5640,7 @@ dependencies = [
  "smallvec",
  "static_assertions",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
  "wgpu-core",
  "wgpu-hal",

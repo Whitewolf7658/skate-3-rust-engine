@@ -1,6 +1,6 @@
 //! Original continuous exhaust synthesizer.
 use bevy::{audio::Source, prelude::*};
-use std::time::Duration;
+use skate_vfs::time::Duration;
 #[derive(Asset, TypePath)]
 pub struct Engine;
 pub struct Exhaust { phase: f32, noise: u32, filtered: f32 }

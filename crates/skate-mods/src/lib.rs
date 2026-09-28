@@ -1,4 +1,5 @@
 //! Window-free, versioned Lua package runtime. Host commands commit only after callbacks succeed.
+use skate_vfs::PathExt as _;
 mod schema;
 mod archive;
 mod vm;
@@ -8,15 +9,15 @@ use serde_json::Value;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
-    time::{Duration, Instant},
 };
+use skate_vfs::time::{Duration, Instant};
 pub use vm::Command;
 
 /// Inspect a folder or ZIP and compile its Lua entry without executing callbacks.
 pub fn validate_package(source: &Path) -> Result<Manifest, String> {
-    let source = source.canonicalize().map_err(|e| e.to_string())?;
+    let source = source.vfs_canonicalize().map_err(|e| e.to_string())?;
     let mut cache = archive::Cache::default();
-    let root = if source.is_dir() { source.clone() } else {
+    let root = if source.vfs_is_dir() { source.clone() } else {
         cache.materialize(source.parent().ok_or("Missing package parent")?, &source)?
     };
     let manifest: Manifest = serde_json::from_slice(&read_bounded(&root, "mod.json", 64 * 1024)?)
@@ -26,6 +27,7 @@ pub fn validate_package(source: &Path) -> Result<Manifest, String> {
     let source = read_bounded(&root, &manifest.entry, 256 * 1024)?;
     let source = std::str::from_utf8(&source).map_err(|e| e.to_string())?;
     if source.starts_with('\u{1b}') { return Err("Lua bytecode is unsupported".into()); }
+    #[cfg(not(target_arch = "wasm32"))]
     mlua::Lua::new().load(source).set_mode(mlua::chunk::ChunkMode::Text).into_function().map_err(|e|e.to_string())?;
     Ok(manifest)
 }
@@ -93,7 +95,7 @@ impl Manager {
         self.diagnostics.clear();
         let mut found = BTreeMap::<String, (PathBuf, Manifest, u64)>::new();
         let mut duplicates = std::collections::BTreeSet::new();
-        let dirs = match std::fs::read_dir(&self.root) {
+        let dirs = match skate_vfs::read_dir(&self.root) {
             Ok(d) => d,
             Err(e) => {
                 self.diagnostics
@@ -112,7 +114,7 @@ impl Manager {
             .filter_map(Result::ok)
             .map(|d| d.path())
             .filter(|p| !p.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.'))
-                && (p.is_dir() || p.extension().is_some_and(|e| e.eq_ignore_ascii_case("zip"))))
+                && (p.vfs_is_dir() || p.extension().is_some_and(|e| e.eq_ignore_ascii_case("zip"))))
             .collect();
         paths.sort();
         if paths.len() > 128 {
@@ -122,7 +124,7 @@ impl Manager {
             );
         }
         for source in paths.into_iter().take(128) {
-            let path = if source.is_file() {
+            let path = if source.vfs_is_file() {
                 match self.archives.materialize(&self.root, &source) {
                     Ok(path) => path,
                     Err(e) => { self.diagnostics.push(format!("{}: {e}", source.display())); continue; }
@@ -161,7 +163,7 @@ impl Manager {
                     self.invalid_since.remove(id);
                     return None;
                 }
-                if !p.root.exists() || force {
+                if !p.root.vfs_exists() || force {
                     return Some(id.clone());
                 }
                 let since = self
@@ -254,7 +256,7 @@ impl Manager {
         }
     }
     fn read_preferences(&mut self, id: &str) -> Preferences {
-        match std::fs::read(self.preferences.join(format!("{id}.json"))) {
+        match skate_vfs::read(self.preferences.join(format!("{id}.json"))) {
             Ok(b) => serde_json::from_slice(&b).unwrap_or_else(|e| {
                 self.diagnostics
                     .push(format!("Settings {id}: {e}; defaults used"));
@@ -269,10 +271,10 @@ impl Manager {
     }
     fn save(&self, id: &str) -> Result<(), String> {
         let p = self.packages.get(id).ok_or("Unknown mod")?;
-        std::fs::create_dir_all(&self.preferences).map_err(|e| e.to_string())?;
+        skate_vfs::create_dir_all(&self.preferences).map_err(|e| e.to_string())?;
         let file = self.preferences.join(format!("{id}.json"));
         let temp = self.preferences.join(format!("{id}.tmp"));
-        std::fs::write(
+        skate_vfs::write(
             &temp,
             serde_json::to_vec_pretty(&Preferences {
                 enabled: p.enabled,
@@ -281,7 +283,7 @@ impl Manager {
             .unwrap(),
         )
         .map_err(|e| e.to_string())?;
-        std::fs::rename(temp, file).map_err(|e| e.to_string())
+        skate_vfs::rename(temp, file).map_err(|e| e.to_string())
     }
     pub fn enable(&mut self, id: &str, enabled: bool) -> Result<(), String> {
         self.packages.get_mut(id).ok_or("Unknown mod")?.enabled = enabled;
@@ -404,7 +406,7 @@ fn fingerprint(root: &Path) -> Result<u64, String> {
         count: &mut usize,
         bytes: &mut u64,
     ) -> Result<(), String> {
-        let mut paths: Vec<_> = std::fs::read_dir(dir)
+        let mut paths: Vec<_> = skate_vfs::read_dir(dir)
             .map_err(|e| e.to_string())?
             .map(|p| p.map(|p| p.path()))
             .collect::<Result<_, _>>()
@@ -415,32 +417,32 @@ fn fingerprint(root: &Path) -> Result<u64, String> {
             if *count > 512 {
                 return Err("Package exceeds 512 files/directories".into());
             }
-            if std::fs::symlink_metadata(&p)
+            if skate_vfs::symlink_metadata(&p)
                 .map_err(|e| e.to_string())?
                 .file_type()
                 .is_symlink()
             {
                 return Err("Symlinks are not supported".into());
             }
-            let canonical = p.canonicalize().map_err(|e| e.to_string())?;
+            let canonical = p.vfs_canonicalize().map_err(|e| e.to_string())?;
             if !canonical.starts_with(root) {
                 return Err("Asset escapes mod root".into());
             }
-            if p.is_dir() {
+            if p.vfs_is_dir() {
                 visit(root, &p, h, count, bytes)?;
             } else {
-                let m = p.metadata().map_err(|e| e.to_string())?;
+                let m = p.vfs_metadata().map_err(|e| e.to_string())?;
                 *bytes += m.len();
                 if *bytes > 64 * 1024 * 1024 {
                     return Err("Package exceeds 64 MiB".into());
                 }
                 p.strip_prefix(root).map_err(|e| e.to_string())?.to_string_lossy().replace('\\', "/").hash(h);
-                std::fs::read(&p).map_err(|e| e.to_string())?.hash(h);
+                skate_vfs::read(&p).map_err(|e| e.to_string())?.hash(h);
             }
         }
         Ok(())
     }
-    let root = root.canonicalize().map_err(|e| e.to_string())?;
+    let root = root.vfs_canonicalize().map_err(|e| e.to_string())?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     visit(&root, &root, &mut h, &mut 0, &mut 0)?;
     Ok(h.finish())
@@ -454,14 +456,14 @@ pub fn read_bounded(root: &Path, relative: &str, limit: u64) -> Result<Vec<u8>, 
     {
         return Err("Use a relative path without traversal".into());
     }
-    let root = root.canonicalize().map_err(|e| e.to_string())?;
-    let path = root.join(path).canonicalize().map_err(|e| e.to_string())?;
+    let root = root.vfs_canonicalize().map_err(|e| e.to_string())?;
+    let path = root.join(path).vfs_canonicalize().map_err(|e| e.to_string())?;
     if !path.starts_with(&root) {
         return Err("Asset escapes mod root".into());
     }
     use std::io::Read;
     let mut bytes = vec![];
-    std::fs::File::open(path)
+    skate_vfs::File::open(path)
         .map_err(|e| e.to_string())?
         .take(limit + 1)
         .read_to_end(&mut bytes)

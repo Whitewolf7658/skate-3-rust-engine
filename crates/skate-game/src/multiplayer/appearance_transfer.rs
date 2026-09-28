@@ -59,9 +59,9 @@ impl Exchange {
 #[cfg(test)]
 pub(super) fn transfer_over_udp(model: Vec<u8>) -> Vec<u8> {
     use std::{
-        net::UdpSocket,
-        time::{Duration, Instant},
-    };
+    net::UdpSocket,
+};
+use skate_vfs::time::{Duration, Instant};
     let sockets: Vec<_> = (0..3)
         .map(|_| {
             let socket = UdpSocket::bind("127.0.0.1:0").unwrap();

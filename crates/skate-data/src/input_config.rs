@@ -1,7 +1,8 @@
 //! Compatibility check for the stock gameplay expressions specialized by
 //! skate-core's GameplayActions. This is not the full native expression VM.
 use crate::AssetError;
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, path::Path};
+use skate_vfs as fs;
 
 pub const STOCK_INPUT_PATH: &str = "private/stock/data/config/input.cfg";
 

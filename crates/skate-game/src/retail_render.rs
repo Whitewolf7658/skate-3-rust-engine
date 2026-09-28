@@ -494,7 +494,7 @@ pub(crate) struct MaterialTuning {
 impl MaterialTuning {
     pub(crate) fn load(root: &std::path::Path) -> Self {
         let path = root.join("private/render-parameters.json");
-        match std::fs::read(&path).ok().and_then(|b| serde_json::from_slice::<BTreeMap<String, Vec<[f32; 4]>>>(&b).ok()) {
+        match skate_vfs::read(&path).ok().and_then(|b| serde_json::from_slice::<BTreeMap<String, Vec<[f32; 4]>>>(&b).ok()) {
             Some(rows) if rows.values().flatten().flatten().all(|x| x.is_finite()) => Self { rows, pca_available: shadow::pca_available(root) },
             _ => { warn!("Retail water/scroll tuning unavailable: {}", path.display()); Self::default() }
         }

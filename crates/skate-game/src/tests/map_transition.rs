@@ -1,4 +1,5 @@
 //! Construction/lifetime checks only. Never advance physics or drive gameplay.
+use skate_vfs::PathExt as _;
 use super::*;
 
 #[test]
@@ -13,7 +14,7 @@ fn a_pending_request_cannot_be_replaced_by_another_menu_action() {
 #[test]
 #[ignore = "requires private installed assets; CPU lifecycle only, no gameplay"]
 fn installed_worlds_prepare_commit_and_retire_without_simulation() {
-    let root = PathBuf::from(std::env::var("SKATE_TRANSITION_TEST_ASSETS").unwrap()).canonicalize().unwrap();
+    let root = PathBuf::from(std::env::var("SKATE_TRANSITION_TEST_ASSETS").unwrap()).vfs_canonicalize().unwrap();
     let manifest = skate_data::GameAssets::load(&root).unwrap();
     let graphs = crate::graph_runtime::StockGraphs::load(&root, &manifest).unwrap();
     let difficulty = crate::difficulty::Difficulty::Hardcore;

@@ -38,7 +38,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use skate_vfs::time::Duration;
 
 use bevy::audio::{AddAudioSource, Source, Volume};
 use bevy::prelude::*;
@@ -198,7 +198,7 @@ pub fn resolve_ambience(
     payload: &std::path::Path,
     place: &str,
 ) -> Result<StreamRequest, String> {
-    let header_data = std::fs::read(resident).map_err(|e| format!("{}: {e}", resident.display()))?;
+    let header_data = skate_vfs::read(resident).map_err(|e| format!("{}: {e}", resident.display()))?;
     let described = audio::describe_archive(&header_data).map_err(|e| e.to_string())?;
     let beds: Vec<audio::ambience::Bed> = described
         .iter()
@@ -218,7 +218,7 @@ pub fn resolve_ambience(
     // The payload member carries the same stem with a .sns extension.
     let stem = bed.member.strip_suffix(".snr").unwrap_or(&bed.member);
     let entry = format!("{stem}.sns");
-    let payload_data = std::fs::read(payload).map_err(|e| format!("{}: {e}", payload.display()))?;
+    let payload_data = skate_vfs::read(payload).map_err(|e| format!("{}: {e}", payload.display()))?;
     let archive = skate_audio_formats::eb::Archive::parse(&payload_data)
         .map_err(|e| e.message.clone())?;
     if archive.find(&entry).is_none() {
@@ -336,7 +336,7 @@ fn finish_decoding(
 
 /// Read, split and decode one stream. Runs off the schedule threads: it spawns a process.
 fn decode(request: &StreamRequest) -> Result<StreamPcm, String> {
-    let data = std::fs::read(&request.archive).map_err(|e| format!("{e}"))?;
+    let data = skate_vfs::read(&request.archive).map_err(|e| format!("{e}"))?;
     let (at, end) = locate(&data, &request.entry)?;
     // A member may carry its own stream header -- the named wheel and grain sounds do -- or be a
     // bare block chain whose format lives in the metadata, as the ambience beds are. Prefer the

@@ -14,7 +14,7 @@
 
 mod skate_audio;
 
-use std::time::{Duration, Instant};
+use skate_vfs::time::{Duration, Instant};
 
 use bevy::MinimalPlugins;
 use bevy::app::{AppExit, ScheduleRunnerPlugin};

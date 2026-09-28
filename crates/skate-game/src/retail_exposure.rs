@@ -80,11 +80,11 @@ fn load(config: Res<crate::config::Config>, retail: Res<super::RetailScene>, mut
         return;
     }
     let profile = config.map_path.as_ref().and_then(|p| p.file_stem()).and_then(|name| {
-        let bytes = std::fs::read(config.asset_root.join("private/exposure-profiles.json")).ok()?;
+        let bytes = skate_vfs::read(config.asset_root.join("private/exposure-profiles.json")).ok()?;
         let mut profiles: std::collections::BTreeMap<String, Authored> = serde_json::from_slice(&bytes).ok()?;
         profiles.remove(&name.to_string_lossy().to_lowercase())
     });
-    let fallback = || std::fs::read(config.asset_root.join("private/exposure.json"))
+    let fallback = || skate_vfs::read(config.asset_root.join("private/exposure.json"))
         .ok()
         .and_then(|b| serde_json::from_slice::<Authored>(&b).ok());
     if let Some(a) = profile.or_else(fallback) {

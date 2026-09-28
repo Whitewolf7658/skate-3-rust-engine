@@ -16,8 +16,8 @@ use skate_net::{
 use std::{
     collections::{BTreeMap, VecDeque},
     net::SocketAddr,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+use skate_vfs::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 pub(crate) fn unique() -> u64 {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)

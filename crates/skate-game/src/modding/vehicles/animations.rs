@@ -121,11 +121,11 @@ mod tests {
     #[test]
     fn vehicle_clips_validate_and_play_once_or_loop() {
         let root = std::env::temp_dir().join(format!("skate-vehicle-clips-{}", std::process::id()));
-        std::fs::create_dir_all(&root).unwrap();
+        skate_vfs::create_dir_all(&root).unwrap();
         let a = Mat4::IDENTITY.to_cols_array();
         let b = Mat4::from_translation(Vec3::X).to_cols_array();
         let file = serde_json::json!({"version":1,"bone_names":["HIPS"],"clips":{"enter":{"fps":1,"frames":[[a],[b]]}}});
-        std::fs::write(root.join("rider.json"), file.to_string()).unwrap();
+        skate_vfs::write(root.join("rider.json"), file.to_string()).unwrap();
         let mut definition = skate_vehicles::VehicleDefinition::default();
         definition.animations.file = Some("rider.json".into());
         definition.animations.enter = Some("enter".into());
@@ -141,11 +141,11 @@ mod tests {
         definition.animations.drive = None;
         let mut invalid = file;
         invalid["clips"]["enter"]["frames"][0][0][0] = serde_json::json!(0);
-        std::fs::write(root.join("rider.json"), invalid.to_string()).unwrap();
+        skate_vfs::write(root.join("rider.json"), invalid.to_string()).unwrap();
         assert!(Clips::load(&root, &definition, &["HIPS".into()]).is_err());
         // Remove only this fixture's known file; do not recursively delete a computed directory.
-        std::fs::remove_file(root.join("rider.json")).unwrap();
-        let _ = std::fs::remove_dir(root);
+        skate_vfs::remove_file(root.join("rider.json")).unwrap();
+        let _ = skate_vfs::remove_dir(root);
     }
     #[test]
     fn missing_animation_uses_immediate_hidden_rider_fallback() {

@@ -28,7 +28,8 @@ default = ["dev-dynamic"]
 dev-dynamic = ["bevy/dynamic_linking"]
 
 [dependencies]
-bevy = { workspace = true, features = ["jpeg", "trace", "debug"] }
+bevy = { workspace = true, features = ["jpeg"] }
+skate-vfs.workspace = true
 tracing-log = "0.2"
 skate-core.workspace = true
 skate-data.workspace = true
@@ -42,6 +43,17 @@ skate-vehicles = { path = "../skate-vehicles" }
 skate-net = { path = "../skate-net" }
 blake3 = "=1.8.7"
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { workspace = true, features = ["trace", "debug"] }
+
+# Web: WebGPU only, pack bytes handed over from JavaScript.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bevy = { workspace = true, features = ["webgpu"] }
+wasm-bindgen = "=0.2.127"
+js-sys = "=0.3.104"
+web-sys = { version = "=0.3.104", features = ["console"] }
+console_error_panic_hook = "=0.1.7"
 
 [dev-dependencies]
 naga = { version = "=27.0.3", features = ["wgsl-in"] }

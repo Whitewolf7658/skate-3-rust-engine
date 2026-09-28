@@ -30,7 +30,7 @@ pub(crate) struct ModdingPlugin;
 impl Plugin for ModdingPlugin {
     fn build(&self, app: &mut App) {
         let root = package_root();
-        if let Err(e) = std::fs::create_dir_all(&root) {
+        if let Err(e) = skate_vfs::create_dir_all(&root) {
             warn!("Cannot create mods folder {}: {e}", root.display());
         }
         info!("Mod packages folder: {}", root.display());

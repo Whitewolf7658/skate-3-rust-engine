@@ -1,8 +1,10 @@
+use skate_vfs::PathExt as _;
 use serde::Deserialize;
 use std::{
-    fmt, fs,
+    fmt,
     path::{Component, Path, PathBuf},
 };
+use skate_vfs as fs;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -34,7 +36,7 @@ impl GameAssets {
             ("MotionGraph", manifest.motion_graph.as_str()),
         ] {
             let path = root.join(relative);
-            if !path.is_file() {
+            if !path.vfs_is_file() {
                 return Err(AssetError(format!("{kind} missing: {}", path.display())));
             }
         }

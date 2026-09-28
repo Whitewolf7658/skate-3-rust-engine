@@ -136,7 +136,7 @@ fn controller_replay_scrub_camera_and_exit_do_not_leak_gameplay_input() {
             });
         app.world_mut()
             .resource_mut::<Time<Real>>()
-            .advance_by(std::time::Duration::from_secs_f64(1. / 60.));
+            .advance_by(skate_vfs::time::Duration::from_secs_f64(1. / 60.));
         app.world_mut().run_schedule(Update);
     };
     tick(&mut app, SELECT, [0; 2], [0; 2]);

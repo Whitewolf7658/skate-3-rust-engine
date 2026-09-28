@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use bevy::render::{Render, RenderApp, RenderSystems};
 use std::sync::{Arc, Mutex};
 use std::{collections::BTreeMap, sync::OnceLock};
-use std::{path::PathBuf, time::Instant};
+use std::{path::PathBuf};
+use skate_vfs::time::Instant;
 
 static EPOCH: OnceLock<Instant> = OnceLock::new();
 static SLOW_SECTIONS: Mutex<Vec<(&'static str, f64, f64)>> = Mutex::new(Vec::new());
@@ -56,7 +57,7 @@ pub(crate) struct Performance {
     render: Arc<Mutex<Vec<[f64; 7]>>>,
 }
 impl Performance {
-    pub(crate) fn physics(&mut self, elapsed: std::time::Duration) {
+    pub(crate) fn physics(&mut self, elapsed: skate_vfs::time::Duration) {
         self.physics_ms += elapsed.as_secs_f64() * 1000.;
         self.ticks += 1;
     }
@@ -229,7 +230,7 @@ fn finish(mut p: ResMut<Performance>, mut exit: MessageWriter<AppExit>) {
             "frame_ms_p99": frames[(frames.len()-1)*99/100],
             "frames_over_8ms": frames.iter().filter(|&&ms| ms > 8.).count(),
         });
-        match std::fs::write(&p.path, serde_json::to_vec_pretty(&report).unwrap()) {
+        match skate_vfs::write(&p.path, serde_json::to_vec_pretty(&report).unwrap()) {
             Ok(()) => {
                 eprintln!("SKATE_PERF_REPORT {}", p.path.display());
                 exit.write(AppExit::Success);

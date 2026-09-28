@@ -1,7 +1,8 @@
 //! Little-endian SKATE01..15 reader. Layout follows the supplied
 //! SK8R15/Source/tools/blender_owned_map/SKATE_FORMAT.md and
 //! owned/world/src/owned_map_package.cpp. No geometry or physics is inferred.
-use std::{io::Read, path::Path, time::Instant};
+use std::{io::Read, path::Path};
+use skate_vfs::time::Instant;
 mod texture_decode;
 mod storage_v15;
 
@@ -337,8 +338,11 @@ impl StoredBlock<'_> {
             }
             2 => {
                 let mut result = Vec::with_capacity(expected.min(8 * 1024 * 1024));
-                zstd::stream::read::Decoder::new(bytes)
-                    .map_err(|e| e.to_string())?
+                #[cfg(not(target_arch = "wasm32"))]
+                let decoder = zstd::stream::read::Decoder::new(bytes).map_err(|e| e.to_string())?;
+                #[cfg(target_arch = "wasm32")]
+                let decoder = ruzstd::decoding::StreamingDecoder::new(bytes).map_err(|e| e.to_string())?;
+                decoder
                     .take(expected as u64 + 1)
                     .read_to_end(&mut result)
                     .map_err(|e| format!("SKATE Zstandard: {e}"))?;
@@ -356,7 +360,7 @@ impl StoredBlock<'_> {
 impl SkateMap {
     pub fn load(path: &Path) -> Result<Self, String> {
         let started = Instant::now();
-        let data = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let data = skate_vfs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let disk = started.elapsed();
         let parse_started = Instant::now();
         let map = Self::parse(&data).map_err(|e| format!("{}: {e}", path.display()))?;

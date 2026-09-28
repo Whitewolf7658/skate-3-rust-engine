@@ -31,6 +31,9 @@ impl Plugin for InputPlugin {
             .init_resource::<PublishedTickInput>()
             .add_systems(PreUpdate, poll_controllers.run_if(crate::graphics_menu::gameplay_active))
             .add_systems(FixedUpdate, publish_actions.in_set(SimulationSet::Input));
+        #[cfg(target_arch = "wasm32")]
+        app.add_systems(PreUpdate, platform::web::sample.before(poll_controllers)
+            .before(crate::graphics_menu::MenuInput).after(bevy::input::InputSystems));
     }
 }
 

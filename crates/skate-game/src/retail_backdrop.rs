@@ -1,4 +1,5 @@
 //! Authored presentation supplements outside the static district geometry.
+use skate_vfs::PathExt as _;
 use bevy::prelude::*;
 use skate_data::skate_map::SkateMap;
 use std::path::Path;
@@ -28,10 +29,10 @@ fn spawn_package(
     images: &mut impl crate::map_render::AssetSink<Image>,
 ) {
     let path = asset_root.join("private").join(folder).join(format!("{name}.skate"));
-    if !path.is_file() {
+    if !path.vfs_is_file() {
         return;
     }
-    let map = match std::fs::read(&path).map_err(|e| e.to_string())
+    let map = match skate_vfs::read(&path).map_err(|e| e.to_string())
         .and_then(|data| SkateMap::parse_render_only(&data)) {
         Ok(map) => map,
         Err(error) => {

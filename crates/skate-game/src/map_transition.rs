@@ -1,7 +1,8 @@
 //! Transactional world replacement: prepare without mutating the live session,
 //! then commit at a schedule boundary with gameplay suspended.
 use bevy::prelude::*;
-use std::{path::PathBuf, sync::{Arc, atomic::{AtomicU8, Ordering}}, thread::JoinHandle, time::Instant};
+use std::{path::PathBuf, sync::{Arc, atomic::{AtomicU8, Ordering}}, thread::JoinHandle};
+use skate_vfs::time::Instant;
 use crate::{config::Config, map_library::Entry, map_render::PreparedScene,
     physics::{GamePhysics, PlayerControls, SkaterRuntime}};
 
@@ -90,6 +91,15 @@ impl Plugin for MapTransitionPlugin {
     }
 }
 
+/// Web: no worker threads; switching maps reloads the page with `?map=<name>`.
+#[cfg(target_arch = "wasm32")]
+fn start(_world: &World, entry: Entry) -> Result<Phase, String> {
+    let name = entry.path.as_deref().and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().into_owned());
+    crate::web::call("skateSelectMap", name.as_deref().unwrap_or(""));
+    Err("Reloading the page with the selected map...".into())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn start(world: &World, entry: Entry) -> Result<Phase, String> {
     let config = world.resource::<Config>();
     let root = config.asset_root.clone();

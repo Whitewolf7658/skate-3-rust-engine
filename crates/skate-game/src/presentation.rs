@@ -24,7 +24,7 @@ pub(crate) struct Snapshot {
 pub(crate) struct Presentation {
     pair: Option<(Snapshot, Snapshot)>,
     generation: u64,
-    period: std::time::Duration,
+    period: skate_vfs::time::Duration,
 }
 impl Presentation {
     pub fn view<'a>(&'a self, replay: &'a crate::replay::Replay, alpha: f32)

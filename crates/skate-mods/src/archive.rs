@@ -1,4 +1,5 @@
 //! Bounded ZIP extraction. A session cache never overwrites another package.
+use skate_vfs::PathExt as _;
 use std::{collections::{BTreeMap, BTreeSet}, io::{Read, Write}, path::{Path, PathBuf}};
 const LIMIT: u64 = 64 * 1024 * 1024;
 
@@ -28,7 +29,7 @@ fn safe_name(name: &str) -> Result<PathBuf, String> {
 impl Cache {
     pub fn materialize(&mut self, root: &Path, archive: &Path) -> Result<PathBuf, String> {
         let mut bytes = Vec::new();
-        std::fs::File::open(archive).map_err(|e| e.to_string())?.take(LIMIT + 1)
+        skate_vfs::File::open(archive).map_err(|e| e.to_string())?.take(LIMIT + 1)
             .read_to_end(&mut bytes).map_err(|e| e.to_string())?;
         if bytes.len() as u64 > LIMIT { return Err("ZIP exceeds 64 MiB compressed".into()); }
         let hash = blake3::hash(&bytes);
@@ -59,25 +60,25 @@ impl Cache {
             return Err("ZIP must contain mod.json at its root, not inside a wrapper folder".into());
         }
         if self.session.is_none() {
-            let root = root.canonicalize().map_err(|e| e.to_string())?;
+            let root = root.vfs_canonicalize().map_err(|e| e.to_string())?;
             let cache = root.join(".cache");
-            if cache.exists() && std::fs::symlink_metadata(&cache).map_err(|e|e.to_string())?.file_type().is_symlink() {
+            if cache.vfs_exists() && skate_vfs::symlink_metadata(&cache).map_err(|e|e.to_string())?.file_type().is_symlink() {
                 return Err("ZIP cache must not be a link".into());
             }
-            std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
-            if !cache.canonicalize().map_err(|e|e.to_string())?.starts_with(&root) { return Err("ZIP cache escapes mods folder".into()); }
-            let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos();
+            skate_vfs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+            if !cache.vfs_canonicalize().map_err(|e|e.to_string())?.starts_with(&root) { return Err("ZIP cache escapes mods folder".into()); }
+            let nonce = skate_vfs::time::SystemTime::now().duration_since(skate_vfs::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos();
             let session = cache.join(format!("{}-{nonce}", std::process::id()));
-            std::fs::create_dir(&session).map_err(|e| e.to_string())?;
+            skate_vfs::create_dir(&session).map_err(|e| e.to_string())?;
             self.session = Some(session);
         }
         self.next += 1;
         let destination = self.session.as_ref().unwrap().join(self.next.to_string());
-        std::fs::create_dir(&destination).map_err(|e| e.to_string())?;
+        skate_vfs::create_dir(&destination).map_err(|e| e.to_string())?;
         for (path, contents) in files {
             let target = destination.join(path);
-            std::fs::create_dir_all(target.parent().unwrap()).map_err(|e| e.to_string())?;
-            std::fs::OpenOptions::new().write(true).create_new(true).open(target)
+            skate_vfs::create_dir_all(target.parent().unwrap()).map_err(|e| e.to_string())?;
+            skate_vfs::OpenOptions::new().write(true).create_new(true).open(target)
                 .and_then(|mut f| f.write_all(&contents)).map_err(|e| e.to_string())?;
         }
         self.entries.insert(archive.to_owned(), (hash, destination.clone()));
@@ -89,9 +90,9 @@ impl Drop for Cache {
     fn drop(&mut self) {
         if let Some(path) = &self.session {
             // Only this process's uniquely created session, and never a redirected path.
-            if let (Ok(actual), Ok(parent)) = (path.canonicalize(), path.parent().unwrap().canonicalize()) {
+            if let (Ok(actual), Ok(parent)) = (path.vfs_canonicalize(), path.parent().unwrap().vfs_canonicalize()) {
                 if actual.parent() == Some(parent.as_path()) && actual.file_name() == path.file_name() {
-                    let _ = std::fs::remove_dir_all(path);
+                    let _ = skate_vfs::remove_dir_all(path);
                 }
             }
         }

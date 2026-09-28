@@ -1,4 +1,5 @@
 //! Native vehicle host: isolated Rapier world, mod ownership and driver lifecycle.
+use skate_vfs::PathExt as _;
 mod animations;
 pub(crate) mod network;
 mod audio;
@@ -304,10 +305,10 @@ pub(super) fn command(
                 )?;
                 let model = root
                     .join(&def.model)
-                    .canonicalize()
+                    .vfs_canonicalize()
                     .map_err(|e| e.to_string())?;
                 let package_root = super::package_root()
-                    .canonicalize()
+                    .vfs_canonicalize()
                     .map_err(|e| e.to_string())?;
                 let relative = model
                     .strip_prefix(package_root)

@@ -98,7 +98,7 @@ struct OceanPca {
     frames: Vec<[[f32; 4]; 7]>,
 }
 fn read_pca(root: &std::path::Path) -> Option<OceanPca> {
-    let pca = std::fs::read(root.join("private/ocean-pca.json"))
+    let pca = skate_vfs::read(root.join("private/ocean-pca.json"))
         .ok()
         .and_then(|b| serde_json::from_slice::<OceanPca>(&b).ok())?;
     (pca.hz == 30.

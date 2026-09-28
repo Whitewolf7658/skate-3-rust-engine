@@ -6,9 +6,13 @@ publish.workspace = true
 
 [dependencies]
 blake3 = "1.8.2"
-mlua = { version = "=0.12.1", features = ["lua54", "vendored", "serde", "send"] }
+skate-vfs.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 skate-vehicles = { path = "../skate-vehicles" }
 zip = { version = "6.0.0", default-features = false, features = ["deflate"] }
+
+# Lua (vendored C) is native-only; web builds reject script packages.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mlua = { version = "=0.12.1", features = ["lua54", "vendored", "serde", "send"] }

@@ -227,7 +227,7 @@ impl GamePhysics {
             as u64
     }
 
-    pub(crate) fn period(&self) -> std::time::Duration { self.clock.period() }
+    pub(crate) fn period(&self) -> skate_vfs::time::Duration { self.clock.period() }
 
     pub(crate) fn difficulty_index(&self) -> u32 { self.animation_profile.physics_mode }
 
@@ -423,7 +423,7 @@ fn advance(
     if physics.failed || vehicles.occupied() {
         return;
     }
-    let timer = performance.as_ref().map(|_| std::time::Instant::now());
+    let timer = performance.as_ref().map(|_| skate_vfs::time::Instant::now());
     let mut actions = input.0.actions();
     let input_available = input.0.controller_available();
     if let Err(message) = frame::advance(

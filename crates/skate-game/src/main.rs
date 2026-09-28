@@ -48,39 +48,61 @@ mod replay;
 mod world;
 mod grind_world;
 mod skate_world;
+#[cfg(target_arch = "wasm32")]
+mod web;
+
+/// Startup failures: stderr natively, console + page message on the web.
+fn report(message: impl std::fmt::Display) {
+    #[cfg(target_arch = "wasm32")]
+    web::report(&message.to_string());
+    #[cfg(not(target_arch = "wasm32"))]
+    eprintln!("{message}");
+}
 
 fn main() -> bevy::app::AppExit {
-    match updater::recover() {
-        Ok(true) => return bevy::app::AppExit::Success,
-        Err(error) => { eprintln!("{error}"); return bevy::app::AppExit::Success; },
-        Ok(false) => {}
+    #[cfg(target_arch = "wasm32")]
+    let args = match web::install() {
+        Ok(args) => args,
+        Err(error) => { report(error); return bevy::app::AppExit::error(); }
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        match updater::recover() {
+            Ok(true) => return bevy::app::AppExit::Success,
+            Err(error) => { report(error); return bevy::app::AppExit::Success; },
+            Ok(false) => {}
+        }
+        if let Some(code) = crash_report::entry() { std::process::exit(code); }
     }
-    if let Some(code) = crash_report::entry() { std::process::exit(code); }
+    // Web builds log through Bevy's LogPlugin (browser console) instead.
+    #[cfg(not(target_arch = "wasm32"))]
     let _trace = match profiling::init() {
         Ok(guard) => guard,
-        Err(error) => { eprintln!("{error}"); return bevy::app::AppExit::error(); }
+        Err(error) => { report(error); return bevy::app::AppExit::error(); }
     };
     let _startup = bevy::log::info_span!("startup").entered();
     eprintln!("REPORT_META stage=configuration_and_installation");
-    let config = match bevy::log::info_span!("load_configuration_and_map").in_scope(config::Config::from_env) {
+    let config = match bevy::log::info_span!("load_configuration_and_map").in_scope(|| config::Config::from_args(args)) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("{error}");
+            report(error);
             return bevy::app::AppExit::error();
         }
     };
     profiling::map_metadata(&config);
-    eprintln!("REPORT_META startup=map_fingerprint:{:016x} difficulty:{} multiplayer_requested:{} custom_appearance:{} renderer:Vulkan", config.map_fingerprint, config.difficulty.key(), config.multiplayer.host.is_some() || config.multiplayer.direct.is_some(), config.multiplayer.appearance.is_some());
+    eprintln!("REPORT_META startup=map_fingerprint:{:016x} difficulty:{} multiplayer_requested:{} custom_appearance:{} renderer:{}", config.map_fingerprint, config.difficulty.key(), config.multiplayer.host.is_some() || config.multiplayer.direct.is_some(), config.multiplayer.appearance.is_some(), if cfg!(target_arch = "wasm32") {"WebGPU"} else {"Vulkan"});
     eprintln!("REPORT_META stage=gameplay_configuration");
     if let Err(error) = skate_data::input_config::StockGameplayConfig::load(&config.asset_root) {
-        eprintln!("{error}");
+        report(error);
         return bevy::app::AppExit::error();
     }
     eprintln!("REPORT_META stage=asset_manifest");
     let manifest = match bevy::log::info_span!("load_manifest").in_scope(|| skate_data::GameAssets::load(&config.asset_root)) {
         Ok(manifest) => manifest,
         Err(error) => {
-            eprintln!("{error}");
+            report(error);
             return bevy::app::AppExit::error();
         }
     };
@@ -88,14 +110,14 @@ fn main() -> bevy::app::AppExit {
     let graphs = match bevy::log::info_span!("load_graphs").in_scope(|| graph_runtime::StockGraphs::load(&config.asset_root, &manifest)) {
         Ok(graphs) => graphs,
         Err(error) => {
-            eprintln!("{error}");
+            report(error);
             return bevy::app::AppExit::error();
         }
     };
     eprintln!("REPORT_META stage=map_validation");
     if let Some(map) = &config.map {
         if let Err(error) = skate_world::validate_runtime(map) {
-            eprintln!("{error}");
+            report(error);
             return bevy::app::AppExit::error();
         }
     }
@@ -104,7 +126,7 @@ fn main() -> bevy::app::AppExit {
     let mut physics = match bevy::log::info_span!("load_physics").in_scope(|| physics::GamePhysics::load_with_difficulty(&config.asset_root, config.map.as_ref(), config.difficulty)) {
         Ok(physics) => physics,
         Err(error) => {
-            eprintln!("{error}");
+            report(error);
             return bevy::app::AppExit::error();
         }
     };
@@ -117,18 +139,18 @@ fn main() -> bevy::app::AppExit {
     let skater = match bevy::log::info_span!("load_skater").in_scope(|| physics::SkaterRuntime::load(&config.asset_root, &graphs, &physics, config.difficulty.key())) {
         Ok(skater) => skater,
         Err(error) => {
-            eprintln!("{error}");
+            report(error);
             return bevy::app::AppExit::error();
         }
     };
     eprintln!("REPORT_META stage=controls_initialization");
     let controls = match physics::PlayerControls::load(&config.asset_root) {
         Ok(controls) => controls,
-        Err(error) => { eprintln!("{error}"); return bevy::app::AppExit::error(); }
+        Err(error) => { report(error); return bevy::app::AppExit::error(); }
     };
     if config.check_assets {
         if let Err(error) = camera::CameraRuntime::load(&config.asset_root) {
-            eprintln!("{error}");
+            report(error);
             return bevy::app::AppExit::error();
         }
         eprintln!("SKATE_ASSETS_READY");

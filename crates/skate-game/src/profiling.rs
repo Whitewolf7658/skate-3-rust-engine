@@ -17,7 +17,6 @@ use serde_json::{Value, json};
 use std::{
     cell::RefCell,
     collections::HashMap,
-    fs::OpenOptions,
     io::{BufWriter, Write},
     path::PathBuf,
     sync::{
@@ -26,8 +25,9 @@ use std::{
         mpsc::{SyncSender, sync_channel},
     },
     thread::JoinHandle,
-    time::{Duration, Instant},
 };
+use skate_vfs::OpenOptions;
+use skate_vfs::time::{Duration, Instant};
 
 const MAX_BYTES: usize = 128 * 1024 * 1024;
 static CAPTURE: OnceLock<Arc<Capture>> = OnceLock::new();
@@ -593,7 +593,7 @@ mod tests {
     fn viewer_export_wait_stop_and_privacy() {
         let path =
             std::env::temp_dir().join(format!("skate-trace-test-{}.json", std::process::id()));
-        let _ = std::fs::remove_file(&path);
+        let _ = skate_vfs::remove_file(&path);
         let guard = init_options(Options {
             path: Some(path.clone()),
             seconds: 1,
@@ -621,7 +621,7 @@ mod tests {
         )
         .in_scope(|| tracing::info!("CANARY_LOG"));
         drop(guard);
-        let text = std::fs::read_to_string(&path).unwrap();
+        let text = skate_vfs::read_to_string(&path).unwrap();
         let parsed: Value = serde_json::from_str(&text).unwrap();
         assert!(
             parsed["traceEvents"]
@@ -653,6 +653,6 @@ mod tests {
             render_label("render/CANARY_SECRET/main_opaque_pass_3d/elapsed_gpu", 7).unwrap(),
             "render/7/main_opaque_pass_3d/elapsed_gpu"
         );
-        std::fs::remove_file(path).unwrap();
+        skate_vfs::remove_file(path).unwrap();
     }
 }

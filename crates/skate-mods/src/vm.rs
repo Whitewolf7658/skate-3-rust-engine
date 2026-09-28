@@ -1,4 +1,5 @@
 use crate::{Manifest, read_bounded};
+#[cfg(not(target_arch = "wasm32"))]
 use mlua::{HookTriggers, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, VmState};
 use serde::Deserialize;
 use serde_json::Value;
@@ -81,6 +82,7 @@ impl Command {
         }
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) struct Vm {
     lua: Lua,
     callbacks: Table,
@@ -88,6 +90,7 @@ pub(crate) struct Vm {
     budget: Arc<AtomicUsize>,
     queue: Arc<Mutex<Vec<Command>>>,
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl Vm {
     pub fn new(
         root: &Path,
@@ -238,4 +241,16 @@ impl Vm {
         let commands = std::mem::take(&mut *self.queue.lock().unwrap());
         result.map(|_| commands).map_err(|e| e.to_string())
     }
+}
+
+/// Web builds carry no Lua runtime; packages report a load error instead.
+#[cfg(target_arch = "wasm32")]
+pub(crate) struct Vm;
+#[cfg(target_arch = "wasm32")]
+impl Vm {
+    pub fn new(_root: &std::path::Path, _manifest: &Manifest, _settings: &BTreeMap<String, Value>, _snapshot: &Value) -> Result<Self, String> {
+        Err("Lua packages are unavailable in the web build".into())
+    }
+    pub fn settings(&mut self, _settings: &BTreeMap<String, Value>) -> Result<(), String> { Ok(()) }
+    pub fn call(&mut self, _name: &str, _payload: Value, _snapshot: &Value) -> Result<Vec<Command>, String> { Ok(Vec::new()) }
 }

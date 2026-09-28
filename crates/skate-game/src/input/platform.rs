@@ -22,7 +22,7 @@ pub(crate) enum DeviceError {
 /// subtype cached indefinitely even if Windows never exposes a disconnect.
 #[derive(Default)]
 pub(crate) struct CapabilityCache {
-    value: Option<(u8, std::time::Instant)>,
+    value: Option<(u8, skate_vfs::time::Instant)>,
 }
 impl CapabilityCache {
     pub(crate) fn invalidate(&mut self) {
@@ -30,7 +30,7 @@ impl CapabilityCache {
     }
     fn get(
         &mut self,
-        now: std::time::Instant,
+        now: skate_vfs::time::Instant,
         read: impl FnOnce() -> Result<u8, DeviceError>,
     ) -> Result<u8, DeviceError> {
         if let Some((subtype, expires)) = self.value {
@@ -40,7 +40,7 @@ impl CapabilityCache {
         }
         self.value = None;
         let subtype = read()?;
-        self.value = Some((subtype, now + std::time::Duration::from_secs(1)));
+        self.value = Some((subtype, now + skate_vfs::time::Duration::from_secs(1)));
         Ok(subtype)
     }
 }
@@ -106,7 +106,7 @@ mod windows {
         if result != 0 {
             return Err(DeviceError::State(result));
         }
-        let subtype = cache.get(std::time::Instant::now(), || {
+        let subtype = cache.get(skate_vfs::time::Instant::now(), || {
             let mut capabilities = MaybeUninit::<Capabilities>::uninit();
             // SAFETY: writable storage with the SDK ABI; read only on success.
             let result = unsafe { XInputGetCapabilities(index, 1, capabilities.as_mut_ptr()) };
@@ -137,8 +137,100 @@ pub(crate) fn poll_cached(
     assert!(index < 4);
     #[cfg(windows)]
     return windows::poll(index as u32, cache);
-    #[cfg(not(windows))]
+    #[cfg(target_arch = "wasm32")]
+    return web::poll(index, cache);
+    #[cfg(not(any(windows, target_arch = "wasm32")))]
     Err(DeviceError::UnsupportedPlatform)
+}
+
+/// Web: keyboard and browser gamepads (Bevy/gilrs) synthesize the same raw
+/// XInput packet the Windows path reads. Slot 0 merges the keyboard with the
+/// first gamepad; further gamepads take slots 1-3. See docs/web.md.
+#[cfg(target_arch = "wasm32")]
+pub(crate) mod web {
+    use super::*;
+    use bevy::input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
+    use bevy::prelude::{ButtonInput, KeyCode, Query, Res};
+    use std::sync::Mutex;
+
+    static PADS: Mutex<([Option<XboxState>; 4], u32)> = Mutex::new(([None; 4], 0));
+
+    pub(super) fn poll(index: usize, cache: &mut CapabilityCache) -> Result<DevicePacket, DeviceError> {
+        let pads = PADS.lock().unwrap();
+        match pads.0[index] {
+            Some(state) => Ok(DevicePacket { number: pads.1, state, subtype: 1 }),
+            None => { cache.invalidate(); Err(DeviceError::Disconnected) }
+        }
+    }
+
+    const BUTTONS: [(u16, KeyCode, GamepadButton); 14] = [
+        (0x0001, KeyCode::Digit1, GamepadButton::DPadUp),
+        (0x0002, KeyCode::Digit2, GamepadButton::DPadDown),
+        (0x0004, KeyCode::Digit3, GamepadButton::DPadLeft),
+        (0x0008, KeyCode::Digit4, GamepadButton::DPadRight),
+        (0x0010, KeyCode::Enter, GamepadButton::Start),
+        (0x0020, KeyCode::Backspace, GamepadButton::Select),
+        (0x0040, KeyCode::KeyV, GamepadButton::LeftThumb),
+        (0x0080, KeyCode::KeyB, GamepadButton::RightThumb),
+        (0x0100, KeyCode::KeyQ, GamepadButton::LeftTrigger),
+        (0x0200, KeyCode::KeyR, GamepadButton::RightTrigger),
+        (0x1000, KeyCode::Space, GamepadButton::South),
+        (0x2000, KeyCode::KeyE, GamepadButton::East),
+        (0x4000, KeyCode::ShiftLeft, GamepadButton::West),
+        (0x8000, KeyCode::KeyF, GamepadButton::North),
+    ];
+    fn axis(v: f32) -> i16 { (v.clamp(-1., 1.) * 32767.) as i16 }
+    fn trigger(v: f32) -> u8 { (v.clamp(0., 1.) * 255.) as u8 }
+    fn keys_axis(keys: &ButtonInput<KeyCode>, neg: KeyCode, pos: KeyCode) -> f32 {
+        f32::from(i8::from(keys.pressed(pos)) - i8::from(keys.pressed(neg)))
+    }
+    fn gamepad_state(pad: &Gamepad) -> XboxState {
+        let mut buttons = 0;
+        for (bit, _, button) in BUTTONS { if pad.pressed(button) { buttons |= bit; } }
+        let get = |a: GamepadAxis| pad.get(a).unwrap_or(0.);
+        let analog = |b: GamepadButton| pad.get(b).unwrap_or(if pad.pressed(b) { 1. } else { 0. });
+        XboxState {
+            buttons,
+            triggers: [trigger(analog(GamepadButton::LeftTrigger2)), trigger(analog(GamepadButton::RightTrigger2))],
+            left: [axis(get(GamepadAxis::LeftStickX)), axis(get(GamepadAxis::LeftStickY))],
+            right: [axis(get(GamepadAxis::RightStickX)), axis(get(GamepadAxis::RightStickY))],
+        }
+    }
+    /// Keyboard layout (XInput equivalents): WASD left stick, arrows right
+    /// stick (flicks), Space A, E B, Left Shift X, F Y, Z/C LT/RT, Q/R LB/RB,
+    /// Enter Start (also Escape), Backspace Back, 1-4 D-pad, V/B stick clicks.
+    fn keyboard_state(keys: &ButtonInput<KeyCode>) -> XboxState {
+        let mut buttons = 0;
+        for (bit, key, _) in BUTTONS { if keys.pressed(key) { buttons |= bit; } }
+        if keys.pressed(KeyCode::Escape) { buttons |= 0x0010; }
+        let pull = |k: KeyCode| if keys.pressed(k) { 255 } else { 0 };
+        XboxState {
+            buttons,
+            triggers: [pull(KeyCode::KeyZ), pull(KeyCode::KeyC)],
+            left: [axis(keys_axis(keys, KeyCode::KeyA, KeyCode::KeyD)), axis(keys_axis(keys, KeyCode::KeyS, KeyCode::KeyW))],
+            right: [axis(keys_axis(keys, KeyCode::ArrowLeft, KeyCode::ArrowRight)), axis(keys_axis(keys, KeyCode::ArrowDown, KeyCode::ArrowUp))],
+        }
+    }
+    fn merge(a: XboxState, b: XboxState) -> XboxState {
+        let pick = |x: i16, y: i16| if x.unsigned_abs() >= y.unsigned_abs() { x } else { y };
+        XboxState {
+            buttons: a.buttons | b.buttons,
+            triggers: [a.triggers[0].max(b.triggers[0]), a.triggers[1].max(b.triggers[1])],
+            left: [pick(a.left[0], b.left[0]), pick(a.left[1], b.left[1])],
+            right: [pick(a.right[0], b.right[0]), pick(a.right[1], b.right[1])],
+        }
+    }
+    /// PreUpdate, before `input::poll_controllers`.
+    pub(crate) fn sample(keys: Option<Res<ButtonInput<KeyCode>>>, gamepads: Query<&Gamepad>) {
+        let mut states = [None; 4];
+        let mut pads = gamepads.iter().map(gamepad_state);
+        let keyboard = keys.map(|k| keyboard_state(&k)).unwrap_or_default();
+        states[0] = Some(match pads.next() { Some(pad) => merge(keyboard, pad), None => keyboard });
+        for (slot, pad) in states[1..].iter_mut().zip(pads) { *slot = Some(pad); }
+        let mut shared = PADS.lock().unwrap();
+        shared.0 = states;
+        shared.1 = shared.1.wrapping_add(1);
+    }
 }
 
 #[cfg(test)]
@@ -146,17 +238,17 @@ mod cache_tests {
     use super::*;
     #[test]
     fn capability_cache_refreshes_and_never_caches_errors() {
-        let start = std::time::Instant::now();
+        let start = skate_vfs::time::Instant::now();
         let mut cache = CapabilityCache::default();
         assert_eq!(cache.get(start, || Ok(1)), Ok(1));
         assert_eq!(
-            cache.get(start + std::time::Duration::from_millis(999), || panic!(
+            cache.get(start + skate_vfs::time::Duration::from_millis(999), || panic!(
                 "redundant capability query"
             )),
             Ok(1)
         );
         assert_eq!(
-            cache.get(start + std::time::Duration::from_secs(1), || Ok(2)),
+            cache.get(start + skate_vfs::time::Duration::from_secs(1), || Ok(2)),
             Ok(2)
         );
         cache.invalidate();

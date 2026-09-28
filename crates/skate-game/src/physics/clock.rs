@@ -1,7 +1,7 @@
 //! Offline tick cadence. Original TU3 Simulation::OnRequestSetSimRate82857EC8
 //! sets a wall-clock timer; it does not change the physical integration step.
 use skate_core::camera::SimulationRateRequest;
-use std::time::Duration;
+use skate_vfs::time::Duration;
 
 const NORMAL_STEP: f32 = f32::from_bits(0x3c888889);
 

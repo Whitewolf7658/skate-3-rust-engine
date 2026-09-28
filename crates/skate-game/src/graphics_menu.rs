@@ -15,8 +15,8 @@ use bevy::{
 use serde::{Deserialize, Serialize};
 use std::{
     path::PathBuf,
-    time::{Duration, Instant},
 };
+use skate_vfs::time::{Duration, Instant};
 
 const RESOLUTIONS: &[(u32, u32)] = &[
     (1280, 720),
@@ -164,7 +164,7 @@ fn setup(
         .parent()
         .unwrap_or(&config.asset_root)
         .join("settings/graphics.json");
-    let settings = match std::fs::read(&path) {
+    let settings = match skate_vfs::read(&path) {
         Ok(bytes) => serde_json::from_slice::<GraphicsSettings>(&bytes).unwrap_or_else(|e| {
             warn!("Graphics settings: {e}");
             GraphicsSettings::default()
@@ -473,8 +473,8 @@ pub(crate) fn interact(
         }
         if (row < 5 && !menu.multiplayer && !menu.daylight && !day_action) || (day_action && row < 3) {
             let save = (|| -> Result<(), String> {
-                std::fs::create_dir_all(menu.path.parent().unwrap()).map_err(|e| e.to_string())?;
-                std::fs::write(
+                skate_vfs::create_dir_all(menu.path.parent().unwrap()).map_err(|e| e.to_string())?;
+                skate_vfs::write(
                     &menu.path,
                     serde_json::to_vec_pretty(&menu.settings).map_err(|e| e.to_string())?,
                 )
@@ -706,7 +706,11 @@ fn pace(menu: Option<Res<Menu>>, mut pacer: ResMut<FramePacer>) {
     if menu.settings.fps > 0 {
         let period = Duration::from_secs_f64(1. / f64::from(menu.settings.fps));
         if let Some(wait) = period.checked_sub(pacer.0.elapsed()) {
+            // Browsers pace frames with requestAnimationFrame; blocking is not allowed.
+            #[cfg(not(target_arch = "wasm32"))]
             std::thread::sleep(wait);
+            #[cfg(target_arch = "wasm32")]
+            let _ = wait;
         }
     }
     pacer.0 = Instant::now();

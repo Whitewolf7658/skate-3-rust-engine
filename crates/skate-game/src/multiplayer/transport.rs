@@ -1,10 +1,11 @@
+use skate_vfs::PathExt as _;
 use skate_net::directory::{self, Command as LobbyCommand, Event, Request, Response};
 use std::{
     io,
     net::{SocketAddr, UdpSocket},
     process::{Child, Command, Stdio},
-    time::{Duration, Instant},
 };
+use skate_vfs::time::{Duration, Instant};
 
 /// Platform adapters move opaque bounded datagrams; session/actors live above this.
 pub(super) trait Transport: Send + Sync {
@@ -106,7 +107,7 @@ impl Steam {
             .unwrap()
             .to_path_buf();
         let helper = dir.join("steam-relay/skate-steam-relay.exe");
-        if !helper.is_file() || !dir.join("steam-relay/steam_api64.dll").is_file() {
+        if !helper.vfs_is_file() || !dir.join("steam-relay/steam_api64.dll").vfs_is_file() {
             return Err(
                 "Steam relay files missing; solo and direct multiplayer remain available".into(),
             );
