@@ -238,7 +238,7 @@ fn commit(world: &mut World, mut prepared: PreparedWorld) -> String {
     let notice = format!("Loaded {}.", prepared.metadata.name);
     info!("MAP_TRANSITION_COMMITTED generation={} name={:?} spawn={:?} heading={} pid={}",
         prepared.metadata.generation, prepared.metadata.name, prepared.metadata.spawn,
-        prepared.metadata.heading, std::process::id());
+        prepared.metadata.heading, skate_vfs::process_id());
     if let Some(mut messages) = world.get_resource_mut::<Messages<WorldChanged>>() {
         messages.write(WorldChanged { generation: prepared.metadata.generation });
     }

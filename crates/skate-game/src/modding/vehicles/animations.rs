@@ -120,7 +120,7 @@ mod tests {
     use super::*;
     #[test]
     fn vehicle_clips_validate_and_play_once_or_loop() {
-        let root = std::env::temp_dir().join(format!("skate-vehicle-clips-{}", std::process::id()));
+        let root = skate_vfs::temp_dir().join(format!("skate-vehicle-clips-{}", skate_vfs::process_id()));
         skate_vfs::create_dir_all(&root).unwrap();
         let a = Mat4::IDENTITY.to_cols_array();
         let b = Mat4::from_translation(Vec3::X).to_cols_array();

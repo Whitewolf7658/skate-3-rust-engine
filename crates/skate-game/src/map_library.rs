@@ -66,7 +66,7 @@ mod tests {
     use super::*;
     #[test]
     fn default_pointer_round_trips_map_and_explicit_test_world() {
-        let root = std::env::temp_dir().join(format!("skate-map-pointer-{}", std::process::id()));
+        let root = skate_vfs::temp_dir().join(format!("skate-map-pointer-{}", skate_vfs::process_id()));
         let assets = root.join("assets");
         let map = root.join("maps/example.skate");
         save_default(&assets, Some(&map)).unwrap();

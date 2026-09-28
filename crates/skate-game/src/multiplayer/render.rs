@@ -603,7 +603,7 @@ mod online_owned_tests {
                     started.elapsed().as_secs() < 45,
                     "received online import failed to load"
                 );
-                std::thread::sleep(Duration::from_millis(10));
+                skate_vfs::sleep(Duration::from_millis(10));
             }
             let mut queries: SystemState<(
                 Query<(Entity, &SkinnedMesh)>,
@@ -677,7 +677,7 @@ mod online_owned_tests {
                     started.elapsed().as_secs() < 45,
                     "{gender} scene loading timed out"
                 );
-                std::thread::sleep(Duration::from_millis(10));
+                skate_vfs::sleep(Duration::from_millis(10));
             }
             let mut queries: SystemState<(
                 Query<(Entity, &SkinnedMesh)>,

@@ -208,7 +208,7 @@ pub(crate) fn entry() -> Option<i32> {
     // A relay may inherit a pipe. Never wait indefinitely for its EOF.
     let deadline = Instant::now() + Duration::from_secs(2);
     while !(out.is_finished() && err.is_finished()) && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(10));
+        skate_vfs::sleep(Duration::from_millis(10));
     }
     let code = match &status {
         Ok(s) => s.code().unwrap_or(1),
@@ -311,8 +311,8 @@ fn save(text: &str) -> std::io::Result<PathBuf> {
     let roots = [
         std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
-            .unwrap_or_else(std::env::temp_dir),
-        std::env::temp_dir(),
+            .unwrap_or_else(skate_vfs::temp_dir),
+        skate_vfs::temp_dir(),
     ];
     let mut error = None;
     for root in roots {
@@ -323,7 +323,7 @@ fn save(text: &str) -> std::io::Result<PathBuf> {
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_nanos();
-            let path = folder.join(format!("report-{stamp}-{}.txt", std::process::id()));
+            let path = folder.join(format!("report-{stamp}-{}.txt", skate_vfs::process_id()));
             let mut file = skate_vfs::OpenOptions::new()
                 .write(true)
                 .create_new(true)

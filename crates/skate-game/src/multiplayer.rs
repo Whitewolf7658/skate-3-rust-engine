@@ -26,7 +26,7 @@ pub(crate) fn unique() -> u64 {
     skate_net::hash(
         &[
             nanos.to_le_bytes().as_slice(),
-            std::process::id().to_le_bytes().as_slice(),
+            skate_vfs::process_id().to_le_bytes().as_slice(),
         ]
         .concat(),
     )

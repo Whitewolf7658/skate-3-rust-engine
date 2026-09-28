@@ -68,7 +68,7 @@ impl Cache {
             skate_vfs::create_dir_all(&cache).map_err(|e| e.to_string())?;
             if !cache.vfs_canonicalize().map_err(|e|e.to_string())?.starts_with(&root) { return Err("ZIP cache escapes mods folder".into()); }
             let nonce = skate_vfs::time::SystemTime::now().duration_since(skate_vfs::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos();
-            let session = cache.join(format!("{}-{nonce}", std::process::id()));
+            let session = cache.join(format!("{}-{nonce}", skate_vfs::process_id()));
             skate_vfs::create_dir(&session).map_err(|e| e.to_string())?;
             self.session = Some(session);
         }

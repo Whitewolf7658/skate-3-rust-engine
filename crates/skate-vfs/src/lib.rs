@@ -37,6 +37,30 @@ pub use std::fs::{
     remove_file, rename, symlink_metadata, write,
 };
 
+/// `std::env::temp_dir()`; `/tmp` in the in-memory tree on the web (std panics there).
+pub fn temp_dir() -> PathBuf {
+    #[cfg(target_arch = "wasm32")]
+    return PathBuf::from("/tmp");
+    #[cfg(not(target_arch = "wasm32"))]
+    std::env::temp_dir()
+}
+
+/// `std::process::id()`; a fixed 1 on the web (std panics there).
+pub fn process_id() -> u32 {
+    #[cfg(target_arch = "wasm32")]
+    return 1;
+    #[cfg(not(target_arch = "wasm32"))]
+    std::process::id()
+}
+
+/// `std::thread::sleep`; a no-op on the web, where the main thread may not block.
+pub fn sleep(duration: time::Duration) {
+    #[cfg(not(target_arch = "wasm32"))]
+    std::thread::sleep(duration);
+    #[cfg(target_arch = "wasm32")]
+    let _ = duration;
+}
+
 /// True when running on the in-memory filesystem (web build).
 pub const IN_MEMORY: bool = cfg!(target_arch = "wasm32");
 

@@ -159,7 +159,7 @@ impl Drop for Steam {
                 if self.child.try_wait().ok().flatten().is_some() {
                     return;
                 }
-                std::thread::sleep(Duration::from_millis(10));
+                skate_vfs::sleep(Duration::from_millis(10));
             }
         }
         let _ = self.child.kill();

@@ -40,7 +40,7 @@ pub(super) fn cleanup(mut exit: MessageReader<AppExit>) {
 }
 pub(crate) fn cache_directory() -> &'static Path {
     static ROOT: OnceLock<PathBuf> = OnceLock::new();
-    ROOT.get_or_init(|| std::env::temp_dir().join(format!("skate-online-{:016x}", super::unique())))
+    ROOT.get_or_init(|| skate_vfs::temp_dir().join(format!("skate-online-{:016x}", super::unique())))
 }
 pub(super) fn sync(
     mut state: ResMut<Appearances>,

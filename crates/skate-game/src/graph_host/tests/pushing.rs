@@ -330,9 +330,9 @@ fn collections() -> Collections {
         .duration_since(skate_vfs::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = skate_vfs::temp_dir().join(format!(
         "skate-pushing-test-{}-{unique}",
-        std::process::id()
+        skate_vfs::process_id()
     ));
     let stock = root.join("private/stock");
     skate_vfs::create_dir_all(&stock).unwrap();

@@ -178,7 +178,7 @@ use skate_vfs::time::{Duration, Instant};
         }
         frame += 1;
         if let Some(wait) = Duration::from_millis(frame * 67).checked_sub(started.elapsed()) {
-            std::thread::sleep(wait);
+            skate_vfs::sleep(wait);
         }
     }
 }

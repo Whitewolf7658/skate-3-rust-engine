@@ -122,7 +122,7 @@ mod tests {
     use super::*;
     #[test]
     fn acknowledged_optional_failure_is_versioned_and_retained_data_is_checked() {
-        let root = std::env::temp_dir().join(format!("sk8-availability-{}-{}", std::process::id(),
+        let root = skate_vfs::temp_dir().join(format!("sk8-availability-{}-{}", skate_vfs::process_id(),
             skate_vfs::time::SystemTime::now().duration_since(skate_vfs::time::UNIX_EPOCH).unwrap().as_nanos()));
         let base = root.join("private/customisation");
         skate_vfs::create_dir_all(&base).unwrap();
@@ -148,7 +148,7 @@ mod tests {
     }
     #[test]
     fn receipts_reject_missing_files_empty_lists_and_traversal() {
-        let root = std::env::temp_dir();
+        let root = skate_vfs::temp_dir();
         assert!(!receipt_present(&root, &serde_json::json!({})));
         assert!(!receipt_present(&root, &serde_json::json!({"../missing": {"size": 0}})));
         assert!(!receipt_present(&root, &serde_json::json!({"nonexistent-skate-setup-test": {"size": 0}})));

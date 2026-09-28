@@ -202,7 +202,7 @@ fn retail_collision_world(
         "SKATE_RWCM_READY triangles={count} query_clusters={} source=embedded",
         meshes.len()
     );
-    BoardWorld::with_query_metadata(
+    let world = BoardWorld::with_query_metadata(
         triangles,
         QueryMetadata {
             packed_surfaces,
@@ -211,7 +211,18 @@ fn retail_collision_world(
             island_flags: 0,
         },
     )
-    .map_err(str::to_owned)
+    .map_err(str::to_owned)?;
+    if cfg!(target_arch = "wasm32") { probe_world(&world); }
+    Ok(world)
+}
+
+/// Web bring-up diagnostic: collision bounds and a vertical probe through their centre.
+fn probe_world(world: &BoardWorld) {
+    let Some(bounds) = Bounds::from_points(world.triangles().iter().flat_map(|t| t.triangle.vertices)) else { return; };
+    let (x, z) = ((bounds.min.x + bounds.max.x) * 0.5, (bounds.min.z + bounds.max.z) * 0.5);
+    let hit = world.query_thin_line(Vector3::new(x, bounds.max.y + 10., z), Vector3::new(x, bounds.min.y - 10., z));
+    eprintln!("SKATE_RWCM_PROBE bounds={:?}..{:?} centre_hit={:?}", bounds.min, bounds.max,
+        hit.map(|h| h.map(|h| (h.geometry.position, h.geometry.fraction))));
 }
 
 pub(crate) fn collision_world(
@@ -795,6 +806,11 @@ pub(crate) fn spawn(
         map.environment[4],
         map.environment[5],
     )));
+    if cfg!(target_arch = "wasm32") {
+        let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+        for v in &map.geometry.vertices { for a in 0..3 { lo[a] = lo[a].min(v.position[a]); hi[a] = hi[a].max(v.position[a]); } }
+        info!("SKATE_RENDER_BOUNDS {lo:?}..{hi:?} vertices={}", map.geometry.vertices.len());
+    }
     info!(
         "SKATE_WORLD_READY name={:?} render_triangles={} collision_triangles={}",
         map.name,

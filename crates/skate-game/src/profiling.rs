@@ -592,7 +592,7 @@ mod tests {
     #[test]
     fn viewer_export_wait_stop_and_privacy() {
         let path =
-            std::env::temp_dir().join(format!("skate-trace-test-{}.json", std::process::id()));
+            skate_vfs::temp_dir().join(format!("skate-trace-test-{}.json", skate_vfs::process_id()));
         let _ = skate_vfs::remove_file(&path);
         let guard = init_options(Options {
             path: Some(path.clone()),
@@ -606,7 +606,7 @@ mod tests {
         guard.0.start.store(true, Ordering::Relaxed);
         let deadline = Instant::now() + Duration::from_secs(2);
         while !guard.0.active.load(Ordering::Relaxed) && Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(5));
+            skate_vfs::sleep(Duration::from_millis(5));
         }
         assert!(guard.0.active.load(Ordering::Relaxed));
         // Headless ECS-only app proves real system labels survive release builds.

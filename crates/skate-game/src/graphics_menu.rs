@@ -53,7 +53,9 @@ impl Default for GraphicsSettings {
             scale: 100,
             samples: 4,
             fps: 0,
-            occlusion: true,
+            // Bevy's GPU occlusion culling needs full GPU preprocessing, which
+            // browser WebGPU only partly offers.
+            occlusion: !cfg!(target_arch = "wasm32"),
             hour: 12.,
             day_speed: 60,
             ambient_level: None,
@@ -708,7 +710,7 @@ fn pace(menu: Option<Res<Menu>>, mut pacer: ResMut<FramePacer>) {
         if let Some(wait) = period.checked_sub(pacer.0.elapsed()) {
             // Browsers pace frames with requestAnimationFrame; blocking is not allowed.
             #[cfg(not(target_arch = "wasm32"))]
-            std::thread::sleep(wait);
+            skate_vfs::sleep(wait);
             #[cfg(target_arch = "wasm32")]
             let _ = wait;
         }

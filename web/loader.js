@@ -81,13 +81,6 @@ async function main() {
 
   status('Starting engine (decoding map, compiling shaders)...');
   const { default: init } = await import('./skate3rust.js');
-  // Hide the overlay once Bevy has drawn to the canvas for a few frames.
-  let frames = 0;
-  const watch = () => {
-    if (statusEl.classList.contains('error')) return;
-    if (++frames > 30) { overlay.style.display = 'none'; document.getElementById('bevy').focus(); return; }
-    requestAnimationFrame(watch);
-  };
   try {
     await init();
   } catch (e) {
@@ -97,7 +90,11 @@ async function main() {
       throw e;
     }
   }
-  requestAnimationFrame(watch);
+  // main() has loaded everything synchronously; the render loop is running.
+  if (!statusEl.classList.contains('error')) {
+    overlay.style.display = 'none';
+    document.getElementById('bevy').focus();
+  }
 }
 
 main().catch((e) => globalThis.skateFatal(String(e && e.stack || e)));

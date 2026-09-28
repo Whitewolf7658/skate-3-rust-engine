@@ -1,3 +1,9 @@
+// Web: stderr is discarded, so route the engine's report lines to the console.
+#[cfg(target_arch = "wasm32")]
+macro_rules! eprintln {
+    () => { web_sys::console::log_1(&wasm_bindgen::JsValue::from_str("")) };
+    ($($arg:tt)*) => { web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!($($arg)*))) };
+}
 mod fps_overlay;
 mod animation;
 mod crash_report;
