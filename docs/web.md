@@ -43,10 +43,23 @@ entry u32 path length, UTF-8 relative path, u64 size, bytes (little endian).
   source; no asset is fetched over HTTP after that.
 - Every crate reads files through `skate_vfs` (`std::fs` on native) and time
   through `skate_vfs::time` (`web-time`; `std::time` on native).
+- Retail maps start at their teleport destination (`private/teleports.json`:
+  an id ending in `progression`, else the first for that map). `?teleport=ID`
+  picks another, `?teleport=none` keeps the authored spawn. The authored
+  spawns have no collision underneath on the converted maps; the native
+  ignored test `private_extracted_map_supports_production_gameplay_startup`
+  fails the same way, so the skater falls there on every platform.
 - Choosing another map in the in-game menu or the page's picker reloads the
   page with `?map=` (no loader threads on the web).
 - Web-only differences: no Lua mods, multiplayer, updater, crash reporter,
-  custom-model tools or trace capture; frame pacing is left to the browser.
+  custom-model tools or trace capture; frame pacing is left to the browser;
+  Bevy GPU occlusion culling defaults off. Skate audio stays silent because
+  its XMA decoder runs `ffmpeg` as a child process.
+- Engine report lines (`eprintln!`) and Bevy logs go to the browser console.
+  Debug switches: `?debugloop` logs frame-loop liveness each second,
+  `?debugkeys` logs key events.
+- Expect roughly 5-10 s of blocking load (pack install, map decode, physics)
+  plus a few seconds of shader compilation before the first frame.
 
 ## Controls
 

@@ -76,10 +76,28 @@ pub(crate) fn install() -> Result<Vec<OsString>, String> {
     }
     let mut args = vec![OsString::from("--assets"), format!("{ROOT}/assets").into()];
     match map_name {
-        Some(name) => args.extend([OsString::from("--map"), format!("{ROOT}/maps/{name}.skate").into()]),
+        Some(name) => {
+            args.extend([OsString::from("--map"), format!("{ROOT}/maps/{name}.skate").into()]);
+            if let Some(id) = start_teleport(&name) {
+                log(&format!("skate3rust: starting {name} at teleport {id:?} (?teleport=none uses the authored spawn)"));
+                args.extend([OsString::from("--teleport"), id.into()]);
+            }
+        }
         None => args.push("--test-world".into()),
     }
     Ok(args)
+}
+
+/// Retail spawns can sit above no collision (see docs/web.md), so the web
+/// build starts at the map's teleport destination: `SKATE_TELEPORT` (from
+/// `?teleport=`) if set, else one ending in "progression", else the first.
+fn start_teleport(map: &str) -> Option<String> {
+    let wanted = global("SKATE_TELEPORT").as_string();
+    if wanted.as_deref() == Some("none") { return None; }
+    let destinations = crate::teleport_menu::load(&Path::new(ROOT).join("assets")).ok()?;
+    let usable: Vec<_> = destinations.iter().filter(|d| d.map == map && d.matrix.is_some()).collect();
+    if let Some(id) = wanted { return usable.iter().any(|d| d.id == id).then_some(id); }
+    usable.iter().find(|d| d.id.ends_with("progression")).or(usable.first()).map(|d| d.id.clone())
 }
 
 pub(crate) fn log(message: &str) { web_sys::console::log_1(&message.into()); }

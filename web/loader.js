@@ -16,6 +16,8 @@ globalThis.skateFatal = (message) => {
 globalThis.skateSelectMap = (name) => {
   const url = new URL(location.href);
   url.searchParams.set('map', name || '__test');
+  url.searchParams.delete('teleport');
+  url.searchParams.delete('args');
   location.href = url.toString();
 };
 
@@ -76,6 +78,16 @@ async function main() {
     globalThis.SKATE_MAP_NAME = map.name;
     globalThis.SKATE_MAP_BYTES = mapBytes;
   }
+  if (params.has('debugloop')) {
+    let frames = 0;
+    const count = () => { frames++; requestAnimationFrame(count); };
+    requestAnimationFrame(count);
+    setInterval(() => console.log(`LOOP t=${(performance.now() / 1000).toFixed(1)} raf=${frames} visible=${document.visibilityState} focus=${document.hasFocus()}`), 1000);
+  }
+  if (params.has('debugkeys')) {
+    for (const t of ['keydown', 'keyup']) addEventListener(t, (e) => console.log(`${t} ${e.code} target=${e.target.id || e.target.tagName}`), true);
+  }
+  if (params.has('teleport')) globalThis.SKATE_TELEPORT = params.get('teleport') || 'none';
   const extra = params.get('args');
   if (extra) globalThis.SKATE_ARGS = JSON.parse(extra);
 
