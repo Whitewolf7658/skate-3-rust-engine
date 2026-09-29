@@ -116,6 +116,18 @@ fn main() -> bevy::app::AppExit {
     #[cfg(target_arch = "wasm32")]
     let config = {
         let mut config = config;
+        // Some spawns sit over no collision (MegaPark's authored one): start on
+        // the nearest walkable ground instead of falling out of the world.
+        if let Some(map) = config.map.as_mut() {
+            match skate_data::spawn_ground::grounded_spawn(map, map.spawn) {
+                Ok(Some(ground)) => {
+                    eprintln!("SKATE_SPAWN_MOVED from={:?} to={:?} (no ground below)", map.spawn, ground);
+                    map.spawn = ground;
+                }
+                Ok(None) => {}
+                Err(e) => eprintln!("SKATE_SPAWN_CHECK failed: {e}"),
+            }
+        }
         if web::lite() {
             if let Some(map) = config.map.as_mut() {
                 let saved = lite::shrink_map(map);

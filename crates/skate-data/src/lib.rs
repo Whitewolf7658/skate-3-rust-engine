@@ -14,6 +14,7 @@ pub mod input_config;
 pub mod input_recording;
 pub mod physics_skeleton;
 pub mod retail_collision;
+pub mod spawn_ground;
 pub mod scoring;
 mod scoring_fields;
 mod sha256;
