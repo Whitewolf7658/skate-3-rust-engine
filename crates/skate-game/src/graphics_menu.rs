@@ -201,6 +201,9 @@ fn setup(
     if !supported_msaa.contains(&settings.samples) {
         settings.samples = 1;
     }
+    // On the web the canvas follows the page (fit_canvas_to_parent); a fixed
+    // size would letterbox it.
+    #[cfg(not(target_arch = "wasm32"))]
     window
         .resolution
         .set_physical_resolution(settings.width, settings.height);
@@ -503,7 +506,7 @@ fn apply(
     mut cameras: Query<(Entity, &mut Msaa), With<Camera3d>>,
     mut previous: Local<Option<GraphicsSettings>>,
 ) {
-    if previous
+    if cfg!(not(target_arch = "wasm32")) && previous
         .as_ref()
         .is_none_or(|p| p.width != menu.settings.width || p.height != menu.settings.height)
     {
