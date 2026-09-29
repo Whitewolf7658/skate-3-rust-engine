@@ -118,12 +118,16 @@ pub(crate) fn lite() -> bool {
 /// `?debugmem=1`: log wasm linear memory every 5 s (the rest of the tab is
 /// JS, compiled code and GPU memory, which the browser reports separately).
 pub(crate) fn memory_log(time: bevy::prelude::Res<bevy::prelude::Time<bevy::prelude::Real>>, mut next: bevy::prelude::Local<f32>) {
-    if !global("SKATE_DEBUGMEM").as_bool().unwrap_or(false) || time.elapsed_secs() < *next {
+    if time.elapsed_secs() < *next {
         return;
     }
-    *next = time.elapsed_secs() + 5.0;
+    *next = time.elapsed_secs() + 2.0;
     let bytes = core::arch::wasm32::memory_size(0) * 65536;
-    log(&format!("SKATE_MEM t={:.0}s wasm={} MB", time.elapsed_secs(), bytes >> 20));
+    // The page's crash breadcrumbs (loader.js) read this.
+    let _ = Reflect::set(&js_sys::global(), &"SKATE_WASM_MB".into(), &((bytes >> 20) as f64).into());
+    if global("SKATE_DEBUGMEM").as_bool().unwrap_or(false) {
+        log(&format!("SKATE_MEM t={:.0}s wasm={} MB", time.elapsed_secs(), bytes >> 20));
+    }
 }
 
 /// Console error plus a visible message in the page (`skateFatal`).

@@ -239,11 +239,18 @@ impl WebPlayerAudio {
         if pushing && !self.edges.pushing {
             self.play("push", 0.7, 1.0);
         }
-        if !o.grounded && o.trick_identifier.is_some() && o.trick_identifier != self.edges.trick {
-            let id = o.trick_identifier.as_deref().unwrap_or("").to_ascii_lowercase();
-            if ["flip", "shuv", "varial", "heel", "kick"].iter().any(|k| id.contains(k)) {
-                self.play("flip", 0.6, 1.0);
-            }
+        let spins = |id: Option<&str>| {
+            let id = id.unwrap_or("").to_ascii_lowercase();
+            ["flip", "shuv", "varial", "heel", "kick"].iter().any(|k| id.contains(k))
+        };
+        if !o.grounded && o.trick_identifier.is_some() && o.trick_identifier != self.edges.trick
+            && spins(o.trick_identifier.as_deref())
+        {
+            self.play("flip", 0.6, 1.0);
+        }
+        // Feet catching the board: a board-spinning trick ends while still airborne.
+        if !o.grounded && spins(self.edges.trick.as_deref()) && o.trick_identifier != self.edges.trick {
+            self.play("catch", 0.9, 1.0);
         }
         if !o.frontend_sounds.is_empty() {
             self.play("chime", 0.7, 1.0);
