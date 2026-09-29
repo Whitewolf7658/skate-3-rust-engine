@@ -24,7 +24,7 @@ fn helper_command(recover: bool, automatic: bool) -> Result<(Command, PathBuf, P
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_nanos();
-    let temp = std::env::temp_dir().join(format!("skate-update-{}-{unique}", std::process::id()));
+    let temp = skate_vfs::temp_dir().join(format!("skate-update-{}-{unique}", skate_vfs::process_id()));
     skate_vfs::create_dir(&temp).map_err(|e| e.to_string())?;
     let helper = temp.join("skate3update.exe");
     skate_vfs::copy(root.join("support/skate3update.exe"), &helper).map_err(|e| e.to_string())?;

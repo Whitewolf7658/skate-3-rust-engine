@@ -20,6 +20,8 @@ pub(crate) struct Mods {
     last_bail: bool,
     last_state: u32,
     last_grind: bool,
+    reported: usize,
+    errors: BTreeMap<String, String>,
 }
 struct Owned {
     entity: Entity,
@@ -79,6 +81,8 @@ impl Plugin for ModdingPlugin {
             last_bail: false,
             last_state: 0,
             last_grind: false,
+            reported: 0,
+            errors: BTreeMap::new(),
         })
         .init_resource::<ModMenu>()
         .add_systems(
@@ -156,6 +160,18 @@ fn maintenance(world: &mut World) {
             mods.manager.dispatch("on_event", event);
         }
         mods.manager.scan(false);
+        // stderr is discarded on the web; report load problems through the log.
+        let reported = mods.manager.diagnostics.len();
+        for line in &mods.manager.diagnostics[mods.reported.min(reported)..] {
+            warn!("mods: {line}");
+        }
+        mods.reported = reported;
+        for (id, p) in &mods.manager.packages {
+            if let Some(error) = p.error.as_ref().filter(|e| mods.errors.get(id) != Some(*e)) {
+                warn!("mod {id}: {error}");
+            }
+        }
+        mods.errors = mods.manager.packages.iter().filter_map(|(id, p)| Some((id.clone(), p.error.clone()?))).collect();
         apply(world, &mut mods);
     });
 }

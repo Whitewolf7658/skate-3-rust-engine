@@ -1193,6 +1193,9 @@ pub(super) fn input(world: &World) -> Value {
         "trigger_r": pad.triggers[1],
         "trick_a": pad.buttons & 0x0100 != 0 || keys.pressed(KeyCode::KeyZ),
         "trick_b": pad.buttons & 0x0200 != 0 || keys.pressed(KeyCode::KeyX),
-        "clutch": pad.buttons & 0x1000 != 0 || keys.pressed(KeyCode::KeyC),
+        // The web page already maps C to the right trigger (throttle), so the
+        // keyboard clutch moves to V there.
+        "clutch": pad.buttons & 0x1000 != 0
+            || keys.pressed(if cfg!(target_arch = "wasm32") { KeyCode::KeyV } else { KeyCode::KeyC }),
     })
 }

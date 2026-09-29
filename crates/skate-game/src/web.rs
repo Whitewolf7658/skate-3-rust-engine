@@ -149,4 +149,10 @@ pub(crate) fn register_asset_source(app: &mut App, root: PathBuf) {
         bevy::asset::io::AssetSourceId::Default,
         AssetSourceBuilder::new(move || Box::new(VfsAssetReader(root.clone()))),
     );
+    // Vehicle and other mod models load as `mods://<package>/...`.
+    let mods = crate::modding::package_root();
+    app.register_asset_source(
+        "mods",
+        AssetSourceBuilder::new(move || Box::new(VfsAssetReader(mods.clone()))),
+    );
 }

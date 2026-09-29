@@ -326,7 +326,7 @@ fn commit(world: &mut World, mut prepared: PreparedWorld) -> String {
         prepared.metadata.name,
         prepared.metadata.spawn,
         prepared.metadata.heading,
-        std::process::id()
+        skate_vfs::process_id()
     );
     if let Some(mut messages) = world.get_resource_mut::<Messages<WorldChanged>>() {
         messages.write(WorldChanged {

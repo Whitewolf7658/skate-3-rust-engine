@@ -62,6 +62,12 @@ impl StaticProvider {
         if map.rails.iter().all(|rail| rail.native.is_none()) {
             return Self::authored(&map.rails);
         }
+        // Custom maps can carry native rail payloads without the stock WMET
+        // identity manifest (e.g. converted community maps); grind them as authored.
+        if !map.extensions.iter().any(|e| e.tag == *b"WMET") {
+            bevy::log::warn!("Map rails have native payloads but no WMET manifest; using authored rails");
+            return Self::authored(&map.rails);
+        }
         let mut metadata = map.extensions.iter().filter(|e| e.tag == *b"WMET");
         let extension = metadata
             .next()

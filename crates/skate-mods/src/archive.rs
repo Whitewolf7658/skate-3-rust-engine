@@ -145,7 +145,7 @@ impl Cache {
                 .duration_since(skate_vfs::time::UNIX_EPOCH)
                 .map_err(|e| e.to_string())?
                 .as_nanos();
-            let session = cache.join(format!("{}-{nonce}", std::process::id()));
+            let session = cache.join(format!("{}-{nonce}", skate_vfs::process_id()));
             skate_vfs::create_dir(&session).map_err(|e| e.to_string())?;
             self.session = Some(session);
         }

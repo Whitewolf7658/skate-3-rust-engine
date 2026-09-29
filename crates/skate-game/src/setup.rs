@@ -201,9 +201,9 @@ mod tests {
     use super::*;
     #[test]
     fn acknowledged_optional_failure_is_versioned_and_retained_data_is_checked() {
-        let root = std::env::temp_dir().join(format!(
+        let root = skate_vfs::temp_dir().join(format!(
             "sk8-availability-{}-{}",
-            std::process::id(),
+            skate_vfs::process_id(),
             skate_vfs::time::SystemTime::now()
                 .duration_since(skate_vfs::time::UNIX_EPOCH)
                 .unwrap()
@@ -251,7 +251,7 @@ mod tests {
     }
     #[test]
     fn receipts_reject_missing_files_empty_lists_and_traversal() {
-        let root = std::env::temp_dir();
+        let root = skate_vfs::temp_dir();
         assert!(!receipt_present(&root, &serde_json::json!({})));
         assert!(!receipt_present(
             &root,

@@ -448,7 +448,7 @@ fn fingerprint(root: &Path) -> Result<u64, String> {
             if p.vfs_is_dir() {
                 visit(root, &p, h, count, bytes)?;
             } else {
-                let m = p.metadata().map_err(|e| e.to_string())?;
+                let m = skate_vfs::metadata(&p).map_err(|e| e.to_string())?;
                 *bytes += m.len();
                 if *bytes > 64 * 1024 * 1024 {
                     return Err("Package exceeds 64 MiB".into());

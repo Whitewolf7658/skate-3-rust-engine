@@ -156,7 +156,7 @@ impl CustomModels {
 pub(crate) fn library_path() -> PathBuf {
     std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
+        .unwrap_or_else(skate_vfs::temp_dir)
         .join("Skate3RustEngine/custom-characters")
 }
 #[cfg(not(target_arch = "wasm32"))]
@@ -428,7 +428,7 @@ fn start_import(directory: &Path, reference: &Path) -> Result<Import, String> {
         .duration_since(skate_vfs::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    let result = jobs.join(format!("{}-{nonce}.json", std::process::id()));
+    let result = jobs.join(format!("{}-{nonce}.json", skate_vfs::process_id()));
     let mut command = Command::new(&executable);
     // Preserve optional calibration from earlier local Custom Models builds.
     let profile = executable
@@ -771,7 +771,7 @@ mod tests {
     #[test]
     fn customiser_fresh_roster_combines_with_personal_imports_without_duplicates() {
         let root =
-            std::env::temp_dir().join(format!("skate-roster-sources-{}", std::process::id()));
+            skate_vfs::temp_dir().join(format!("skate-roster-sources-{}", skate_vfs::process_id()));
         let personal = root.join("personal");
         let native = root.join("native");
         let pro_id = "a".repeat(64);
@@ -1076,7 +1076,7 @@ mod tests {
     }
     #[test]
     fn corrupt_or_incomplete_entries_are_not_published() {
-        let root = std::env::temp_dir().join(format!("skate-model-library-{}", std::process::id()));
+        let root = skate_vfs::temp_dir().join(format!("skate-model-library-{}", skate_vfs::process_id()));
         let id = "a".repeat(64);
         let entry = root.join("entries").join(&id);
         skate_vfs::create_dir_all(&entry).unwrap();
