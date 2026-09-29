@@ -13,6 +13,7 @@ SKPK1: magic b"SKPK1\\0\\0\\0", u32 count, then per entry u32 path_len,
 utf8 path (relative, forward slashes), u64 data_len, bytes. Little endian.
 """
 import argparse
+import hashlib
 import json
 import shutil
 import struct
@@ -129,7 +130,21 @@ def main():
     names = [m["name"] for m in maps]
     if default not in names:
         default = names[0] if names else None
-    (out / "pack.json").write_text(json.dumps({"version": 1, "core": core, "maps": maps, "default": default}, indent=1))
+    # Content hashes let loader.js keep downloads in Cache Storage across visits
+    # and map switches, and drop them when a new build changes the bytes.
+    def digest(parts):
+        h = hashlib.sha256()
+        for rel in parts:
+            with open(out / rel, "rb") as f:
+                while chunk := f.read(1 << 20):
+                    h.update(chunk)
+        return h.hexdigest()[:16]
+    core["hash"] = digest(core["parts"])
+    for m in maps:
+        m["hash"] = digest(m["parts"])
+    wasm = out / "skate3rust_bg.wasm"
+    engine = {"size": wasm.stat().st_size, "hash": digest(["skate3rust_bg.wasm"])} if wasm.exists() else None
+    (out / "pack.json").write_text(json.dumps({"version": 1, "engine": engine, "core": core, "maps": maps, "default": default}, indent=1))
     mb = lambda n: f"{n / 1e6:.1f} MB"
     print(f"core.pack: {core['files']} files, {mb(core['size'])} in {len(core['parts'])} part(s)")
     for m in maps:
