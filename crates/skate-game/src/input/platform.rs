@@ -152,6 +152,7 @@ pub(crate) mod web {
     use bevy::input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
     use bevy::prelude::{ButtonInput, KeyCode, Query, Res};
     use std::sync::Mutex;
+    use wasm_bindgen::JsCast;
 
     static PADS: Mutex<([Option<XboxState>; 4], u32)> = Mutex::new(([None; 4], 0));
 
@@ -220,11 +221,25 @@ pub(crate) mod web {
             right: [pick(a.right[0], b.right[0]), pick(a.right[1], b.right[1])],
         }
     }
+    /// On-screen touch pad (`web/touch.js`): `window.skateTouch` is
+    /// `[buttons, lt, rt, lx, ly, rx, ry]` with triggers 0..1 and axes -1..1.
+    fn touch_state() -> Option<XboxState> {
+        let value = js_sys::Reflect::get(&js_sys::global(), &"skateTouch".into()).ok()?;
+        let array = value.dyn_into::<js_sys::Array>().ok()?;
+        let n = |i: u32| array.get(i).as_f64().unwrap_or(0.) as f32;
+        Some(XboxState {
+            buttons: n(0) as u16,
+            triggers: [trigger(n(1)), trigger(n(2))],
+            left: [axis(n(3)), axis(n(4))],
+            right: [axis(n(5)), axis(n(6))],
+        })
+    }
     /// PreUpdate, before `input::poll_controllers`.
     pub(crate) fn sample(keys: Option<Res<ButtonInput<KeyCode>>>, gamepads: Query<&Gamepad>) {
         let mut states = [None; 4];
         let mut pads = gamepads.iter().map(gamepad_state);
         let keyboard = keys.map(|k| keyboard_state(&k)).unwrap_or_default();
+        let keyboard = match touch_state() { Some(touch) => merge(keyboard, touch), None => keyboard };
         states[0] = Some(match pads.next() { Some(pad) => merge(keyboard, pad), None => keyboard });
         for (slot, pad) in states[1..].iter_mut().zip(pads) { *slot = Some(pad); }
         let mut shared = PADS.lock().unwrap();
