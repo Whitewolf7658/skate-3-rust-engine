@@ -212,6 +212,12 @@ fn setup(
         })
         .collect();
     let mut settings = settings;
+    // Phones: no MSAA and a half-scale 3D target (their canvases are 2-3x DPR).
+    #[cfg(target_arch = "wasm32")]
+    if crate::web::lite() {
+        settings.samples = 1;
+        settings.scale = settings.scale.min(50);
+    }
     // Reproducible A/B override; normal launches use the saved menu setting.
     match std::env::var("SKATE_OCCLUSION").as_deref() {
         Ok("0") => settings.occlusion = false,

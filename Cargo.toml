@@ -20,7 +20,7 @@ skate-audio-core = { path = "crates/skate-audio-core" }
 # Web build: release without debug info, thin LTO, many codegen units to bound RAM.
 [profile.web]
 inherits = "release"
-opt-level = 3
+opt-level = "s"
 debug = 0
 strip = true
 lto = "thin"

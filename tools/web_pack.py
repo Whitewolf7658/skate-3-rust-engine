@@ -23,7 +23,10 @@ from pathlib import Path
 SKIP_ROOT = {"setup.log", "setup-report.json", "maps.json"}
 
 
-def core_files(root: Path):
+PER_MAP_DIRS = ("assets/private/native-props/", "assets/private/native-skies/", "assets/private/native-backdrops/")
+
+
+def core_files(root: Path, wanted=None):
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
@@ -33,6 +36,10 @@ def core_files(root: Path):
             continue
         if top == "maps" and rel.lower().endswith(".skate"):
             continue
+        # Props, skies, backdrops and irradiance of maps not being published.
+        if wanted is not None and (rel.startswith(PER_MAP_DIRS) or top == "maps"):
+            if rel.split("/")[-1].split(".")[0] not in wanted:
+                continue
         if top not in ("assets", "maps", "settings", "mods") and "/" in rel:
             continue
         yield rel, path
@@ -108,11 +115,11 @@ def main():
         shutil.rmtree(out / "maps")
     (out / "maps").mkdir()
 
-    entries = list(core_files(root))
+    wanted = set(a.maps.split(",")) if a.maps else None
+    entries = list(core_files(root, wanted))
     core = write_parts(pack_chunks(entries), out, "core.pack", part)
     core["files"] = len(entries)
 
-    wanted = set(a.maps.split(",")) if a.maps else None
     maps = []
     for path in sorted((root / "maps").glob("*.skate"), key=lambda p: p.stem.lower()):
         if wanted is not None and path.stem not in wanted:

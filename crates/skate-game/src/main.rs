@@ -57,6 +57,8 @@ mod world;
 
 #[cfg(target_arch = "wasm32")]
 mod web;
+#[cfg(target_arch = "wasm32")]
+mod lite;
 
 /// Startup failures: stderr natively, console + page message on the web.
 fn report(message: impl std::fmt::Display) {
@@ -110,6 +112,17 @@ fn main() -> bevy::app::AppExit {
             report(error);
             return bevy::app::AppExit::error();
         }
+    };
+    #[cfg(target_arch = "wasm32")]
+    let config = {
+        let mut config = config;
+        if web::lite() {
+            if let Some(map) = config.map.as_mut() {
+                let saved = lite::shrink_map(map);
+                eprintln!("SKATE_LITE map textures halved, {} MB saved", saved >> 20);
+            }
+        }
+        config
     };
     profiling::map_metadata(&config);
     eprintln!(

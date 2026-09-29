@@ -158,6 +158,12 @@ pub(crate) fn build(
     app.add_plugins(crate::skate_audio::SkateAudioPlugin);
     crate::teleport_menu::install(&mut app);
     app.add_plugins(crate::updater::UpdaterPlugin);
+    #[cfg(target_arch = "wasm32")]
+    if crate::web::lite() {
+        app.add_systems(PostUpdate, crate::lite::shrink_images);
+    }
+    #[cfg(target_arch = "wasm32")]
+    app.add_systems(Last, crate::web::memory_log);
     app.add_plugins(crate::multiplayer::MultiplayerPlugin);
     app.add_plugins(crate::scoring_hud::ScoringHudPlugin);
     app.add_systems(Last, crate::crash_context::sample);

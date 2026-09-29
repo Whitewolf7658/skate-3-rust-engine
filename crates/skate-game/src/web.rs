@@ -110,6 +110,22 @@ pub(crate) fn call(name: &str, arg: &str) {
     }
 }
 
+/// Phone mode, set by the page loader (`SKATE_LITE`): smaller textures, no MSAA, half-scale render.
+pub(crate) fn lite() -> bool {
+    global("SKATE_LITE").as_bool().unwrap_or(false)
+}
+
+/// `?debugmem=1`: log wasm linear memory every 5 s (the rest of the tab is
+/// JS, compiled code and GPU memory, which the browser reports separately).
+pub(crate) fn memory_log(time: bevy::prelude::Res<bevy::prelude::Time<bevy::prelude::Real>>, mut next: bevy::prelude::Local<f32>) {
+    if !global("SKATE_DEBUGMEM").as_bool().unwrap_or(false) || time.elapsed_secs() < *next {
+        return;
+    }
+    *next = time.elapsed_secs() + 5.0;
+    let bytes = core::arch::wasm32::memory_size(0) * 65536;
+    log(&format!("SKATE_MEM t={:.0}s wasm={} MB", time.elapsed_secs(), bytes >> 20));
+}
+
 /// Console error plus a visible message in the page (`skateFatal`).
 pub(crate) fn report(message: &str) {
     web_sys::console::error_1(&message.into());
