@@ -33,7 +33,7 @@ def core_files(root: Path):
             continue
         if top == "maps" and rel.lower().endswith(".skate"):
             continue
-        if top not in ("assets", "maps", "settings") and "/" in rel:
+        if top not in ("assets", "maps", "settings", "mods") and "/" in rel:
             continue
         yield rel, path
 

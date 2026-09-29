@@ -14,12 +14,39 @@ use std::{
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
-    NetworkState { key: String, #[serde(default)] value: Value },
-    VehicleTune { key:String, tuning:skate_vehicles::VehicleTuning },
-    VehicleSpawn { key:String, definition:String, position:[f32;3], heading:f32 },
-    VehicleRemove { key:String }, VehicleEnter { key:String }, VehicleExit { key:String },
-    VehicleReset { key:String, position:[f32;3], heading:f32 },
-    VehicleControl { key:String, controls:skate_vehicles::Controls },
+    NetworkState {
+        key: String,
+        #[serde(default)]
+        value: Value,
+    },
+    VehicleTune {
+        key: String,
+        tuning: skate_vehicles::VehicleTuning,
+    },
+    VehicleSpawn {
+        key: String,
+        definition: String,
+        position: [f32; 3],
+        heading: f32,
+    },
+    VehicleRemove {
+        key: String,
+    },
+    VehicleEnter {
+        key: String,
+    },
+    VehicleExit {
+        key: String,
+    },
+    VehicleReset {
+        key: String,
+        position: [f32; 3],
+        heading: f32,
+    },
+    VehicleControl {
+        key: String,
+        controls: skate_vehicles::Controls,
+    },
     Trainer {
         tuning: crate::TrainerTuning,
     },
@@ -52,12 +79,33 @@ impl Command {
     pub fn validate(&self) -> bool {
         let point = |p: &[f32; 3]| p.iter().all(|v| v.is_finite() && v.abs() <= 100_000.);
         match self {
-            Self::NetworkState { key, value } => crate::schema::valid_id(key) && serde_json::to_vec(value).is_ok_and(|v| v.len() <= 512),
-            Self::VehicleTune{key,tuning} => crate::schema::valid_id(key) && tuning.valid(),
-            Self::VehicleSpawn{key,definition,position,heading} => crate::schema::valid_id(key) && skate_vehicles::package_path(definition) && point(position) && heading.is_finite(),
-            Self::VehicleReset{key,position,heading} => crate::schema::valid_id(key) && point(position) && heading.is_finite(),
-            Self::VehicleControl{key,controls} => crate::schema::valid_id(key) && controls.valid(),
-            Self::VehicleRemove{key}|Self::VehicleEnter{key}|Self::VehicleExit{key} => crate::schema::valid_id(key),
+            Self::NetworkState { key, value } => {
+                crate::schema::valid_id(key)
+                    && serde_json::to_vec(value).is_ok_and(|v| v.len() <= 512)
+            }
+            Self::VehicleTune { key, tuning } => crate::schema::valid_id(key) && tuning.valid(),
+            Self::VehicleSpawn {
+                key,
+                definition,
+                position,
+                heading,
+            } => {
+                crate::schema::valid_id(key)
+                    && skate_vehicles::package_path(definition)
+                    && point(position)
+                    && heading.is_finite()
+            }
+            Self::VehicleReset {
+                key,
+                position,
+                heading,
+            } => crate::schema::valid_id(key) && point(position) && heading.is_finite(),
+            Self::VehicleControl { key, controls } => {
+                crate::schema::valid_id(key) && controls.valid()
+            }
+            Self::VehicleRemove { key }
+            | Self::VehicleEnter { key }
+            | Self::VehicleExit { key } => crate::schema::valid_id(key),
             Self::Trainer { tuning } => tuning.valid(),
             Self::Animation { path } => !path.is_empty() && path.len() <= 256,
             Self::Log { text } => text.len() <= 2048,
@@ -83,7 +131,7 @@ impl Command {
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) struct Vm {
+pub(crate) struct LuaVm {
     lua: Lua,
     callbacks: Table,
     advance: mlua::Function,
@@ -91,7 +139,7 @@ pub(crate) struct Vm {
     queue: Arc<Mutex<Vec<Command>>>,
 }
 #[cfg(not(target_arch = "wasm32"))]
-impl Vm {
+impl LuaVm {
     pub fn new(
         root: &Path,
         manifest: &Manifest,
@@ -243,14 +291,48 @@ impl Vm {
     }
 }
 
-/// Web builds carry no Lua runtime; packages report a load error instead.
-#[cfg(target_arch = "wasm32")]
-pub(crate) struct Vm;
-#[cfg(target_arch = "wasm32")]
+/// A package's script: Lua natively, or a built-in Rust port of it (always on
+/// the web, which carries no Lua runtime).
+pub(crate) enum Vm {
+    #[cfg(not(target_arch = "wasm32"))]
+    Lua(LuaVm),
+    Native(crate::native::NativeVm),
+}
 impl Vm {
-    pub fn new(_root: &std::path::Path, _manifest: &Manifest, _settings: &BTreeMap<String, Value>, _snapshot: &Value) -> Result<Self, String> {
-        Err("Lua packages are unavailable in the web build".into())
+    pub fn new(
+        root: &Path,
+        manifest: &Manifest,
+        settings: &BTreeMap<String, Value>,
+        snapshot: &Value,
+    ) -> Result<Self, String> {
+        if crate::native::preferred() {
+            if let Some(vm) = crate::native::NativeVm::new(&manifest.id, settings) {
+                return Ok(Self::Native(vm));
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        return LuaVm::new(root, manifest, settings, snapshot).map(Self::Lua);
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = (root, snapshot);
+            Err("Lua packages are unavailable in the web build".into())
+        }
     }
-    pub fn settings(&mut self, _settings: &BTreeMap<String, Value>) -> Result<(), String> { Ok(()) }
-    pub fn call(&mut self, _name: &str, _payload: Value, _snapshot: &Value) -> Result<Vec<Command>, String> { Ok(Vec::new()) }
+    pub fn settings(&mut self, settings: &BTreeMap<String, Value>) -> Result<(), String> {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::Lua(vm) => vm.settings(settings).map_err(|e| e.to_string()),
+            Self::Native(vm) => {
+                vm.settings(settings);
+                Ok(())
+            }
+        }
+    }
+    pub fn call(&mut self, name: &str, payload: Value, snapshot: &Value) -> Result<Vec<Command>, String> {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::Lua(vm) => vm.call(name, payload, snapshot),
+            Self::Native(vm) => vm.call(name, payload, snapshot),
+        }
+    }
 }

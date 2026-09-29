@@ -4761,6 +4761,7 @@ dependencies = [
  "naga_oil",
  "serde",
  "serde_json",
+ "skate-audio-core",
  "skate-audio-formats",
  "skate-core",
  "skate-data",

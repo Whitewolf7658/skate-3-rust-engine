@@ -15,9 +15,17 @@ pub(crate) fn discover(assets: &Path) -> Vec<Entry> {
         if let Ok(entries) = skate_vfs::read_dir(directory) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.vfs_is_file() && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("skate")) {
+                if path.vfs_is_file()
+                    && path
+                        .extension()
+                        .is_some_and(|e| e.eq_ignore_ascii_case("skate"))
+                {
                     maps.push(Entry {
-                        label: path.file_stem().unwrap().to_string_lossy().replace('_', " "),
+                        label: path
+                            .file_stem()
+                            .unwrap()
+                            .to_string_lossy()
+                            .replace('_', " "),
                         path: Some(path.vfs_canonicalize().unwrap_or(path)),
                     });
                 }
@@ -25,23 +33,38 @@ pub(crate) fn discover(assets: &Path) -> Vec<Entry> {
         }
     }
     maps.sort_by(|a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase()));
-    maps.insert(0, Entry { label: "Test world".into(), path: None });
+    maps.insert(
+        0,
+        Entry {
+            label: "Test world".into(),
+            path: None,
+        },
+    );
     maps
 }
 
 pub(crate) fn default_map(assets: &Path) -> Result<Option<PathBuf>, String> {
     // Only a completed release installation creates this pointer. Existing
     // development checkouts continue to boot the test world.
-    let pointer = assets.parent().unwrap_or(assets).join("settings/default-map.json");
+    let pointer = assets
+        .parent()
+        .unwrap_or(assets)
+        .join("settings/default-map.json");
     let bytes = match skate_vfs::read(&pointer) {
         Ok(bytes) => bytes,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(format!("{}: {e}", pointer.display())),
     };
     let relative: Option<String> = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-    let Some(relative) = relative else { return Ok(None); };
+    let Some(relative) = relative else {
+        return Ok(None);
+    };
     let relative = Path::new(&relative);
-    if relative.is_absolute() || relative.components().any(|c| !matches!(c, std::path::Component::Normal(_))) {
+    if relative.is_absolute()
+        || relative
+            .components()
+            .any(|c| !matches!(c, std::path::Component::Normal(_)))
+    {
         return Err("Invalid installed default map path".into());
     }
     Ok(Some(assets.parent().unwrap_or(assets).join(relative)))
@@ -50,14 +73,21 @@ pub(crate) fn default_map(assets: &Path) -> Result<Option<PathBuf>, String> {
 /// Save only a successfully activated map. Null explicitly selects the test world.
 pub(crate) fn save_default(assets: &Path, map: Option<&Path>) -> Result<(), String> {
     let root = assets.parent().unwrap_or(assets);
-    let relative = map.map(|path| path.strip_prefix(root)
-        .map(|p| p.to_string_lossy().replace('\\', "/"))
-        .map_err(|_| "Map is outside this installation; default map unchanged".to_string())).transpose()?;
+    let relative = map
+        .map(|path| {
+            path.strip_prefix(root)
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                .map_err(|_| "Map is outside this installation; default map unchanged".to_string())
+        })
+        .transpose()?;
     let directory = root.join("settings");
     skate_vfs::create_dir_all(&directory).map_err(|e| e.to_string())?;
     let temporary = directory.join("default-map.json.tmp");
-    skate_vfs::write(&temporary, serde_json::to_vec_pretty(&relative).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    skate_vfs::write(
+        &temporary,
+        serde_json::to_vec_pretty(&relative).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     skate_vfs::rename(temporary, directory.join("default-map.json")).map_err(|e| e.to_string())
 }
 
@@ -66,14 +96,18 @@ mod tests {
     use super::*;
     #[test]
     fn default_pointer_round_trips_map_and_explicit_test_world() {
-        let root = skate_vfs::temp_dir().join(format!("skate-map-pointer-{}", skate_vfs::process_id()));
+        let root = std::env::temp_dir().join(format!("skate-map-pointer-{}", std::process::id()));
         let assets = root.join("assets");
         let map = root.join("maps/example.skate");
         save_default(&assets, Some(&map)).unwrap();
         assert_eq!(default_map(&assets).unwrap(), Some(map));
         save_default(&assets, None).unwrap();
         assert_eq!(default_map(&assets).unwrap(), None);
-        skate_vfs::write(root.join("settings/default-map.json"), br#""../outside.skate""#).unwrap();
+        skate_vfs::write(
+            root.join("settings/default-map.json"),
+            br#""../outside.skate""#,
+        )
+        .unwrap();
         assert!(default_map(&assets).is_err());
         skate_vfs::remove_dir_all(root).unwrap();
     }

@@ -37,13 +37,21 @@ pub(crate) fn build(
     physics: GamePhysics,
     skater: SkaterRuntime,
 ) -> App {
-    let retail_scene = config.map.as_ref().is_some_and(|map| crate::retail_render::RetailScene::for_map(map));
+    let retail_scene = config
+        .map
+        .as_ref()
+        .is_some_and(|map| crate::retail_render::RetailScene::for_map(map));
     let mut app = App::new();
     #[cfg(not(target_arch = "wasm32"))]
     {
         crate::custom_models::register_source(&mut app);
-        app.register_asset_source("mods", bevy::asset::io::AssetSourceBuilder::platform_default(
-            &crate::modding::package_root().to_string_lossy(), None));
+        app.register_asset_source(
+            "mods",
+            bevy::asset::io::AssetSourceBuilder::platform_default(
+                &crate::modding::package_root().to_string_lossy(),
+                None,
+            ),
+        );
     }
     // Web: every asset comes from the in-memory pack, never over HTTP.
     #[cfg(target_arch = "wasm32")]
@@ -60,7 +68,11 @@ pub(crate) fn build(
             })
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: config.multiplayer.title.clone().unwrap_or_else(||"Skate 3 Rust Engine".into()),
+                    title: config
+                        .multiplayer
+                        .title
+                        .clone()
+                        .unwrap_or_else(|| "Skate 3 Rust Engine".into()),
                     resolution: (1280, 800).into(),
                     canvas: cfg!(target_arch = "wasm32").then(|| "#bevy".into()),
                     fit_canvas_to_parent: true,
@@ -78,7 +90,8 @@ pub(crate) fn build(
                     ..default()
                 }),
                 ..default()
-            }).build();
+            })
+            .build();
     // Native: raw XInput drives gameplay and menus; Bevy's second gamepad
     // backend can stall PreUpdate (70.68 ms in the University capture), and
     // logging goes through profiling::init. Web: browser gamepads via gilrs,
@@ -86,7 +99,13 @@ pub(crate) fn build(
     #[cfg(not(target_arch = "wasm32"))]
     let plugins = plugins.disable::<bevy::log::LogPlugin>().disable::<bevy::gilrs::GilrsPlugin>();
     app.add_plugins(plugins)
-    .insert_resource(bevy::winit::WinitSettings {focused_mode:bevy::winit::UpdateMode::Continuous,unfocused_mode:bevy::winit::UpdateMode::Continuous})
+    .insert_resource(bevy::winit::WinitSettings {
+        focused_mode: bevy::winit::UpdateMode::Continuous,
+        unfocused_mode: bevy::winit::UpdateMode::Continuous,
+    })
+    .insert_resource(crate::skate_audio::player::PlayerAudioAssets(
+        config.asset_root.clone(),
+    ))
     .insert_resource(config)
     .insert_resource(crate::retail_render::RetailScene(retail_scene))
     .insert_resource(assets::AssetManifest(manifest))
@@ -130,7 +149,10 @@ pub(crate) fn build(
         verification::VerificationPlugin,
         crate::performance::PerformancePlugin,
     ));
-    app.add_plugins((crate::session_marker::SessionMarkerPlugin, crate::customiser::CustomiserPlugin));
+    app.add_plugins((
+        crate::session_marker::SessionMarkerPlugin,
+        crate::customiser::CustomiserPlugin,
+    ));
     app.add_plugins(crate::custom_models::CustomModelsPlugin);
     app.add_plugins(crate::modding::ModdingPlugin);
     app.add_plugins(crate::skate_audio::SkateAudioPlugin);

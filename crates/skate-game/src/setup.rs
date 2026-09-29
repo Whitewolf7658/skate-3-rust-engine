@@ -1,6 +1,9 @@
 //! Each portable copy owns its installation; explicit --assets is for development.
 use skate_vfs::PathExt as _;
-use std::{path::{Path, PathBuf}, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn installed(base: &Path) -> Result<Option<(PathBuf, serde_json::Value)>, String> {
     let bytes = match skate_vfs::read(base.join("installation.json")) {
@@ -9,33 +12,54 @@ fn installed(base: &Path) -> Result<Option<(PathBuf, serde_json::Value)>, String
         Err(e) => return Err(e.to_string()),
     };
     let marker: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-    if marker["version"].as_u64() != Some(1) { return Err("Unsupported installation version".into()); }
-    let relative = Path::new(marker["directory"].as_str().ok_or("Invalid installation path")?);
+    if marker["version"].as_u64() != Some(1) {
+        return Err("Unsupported installation version".into());
+    }
+    let relative = Path::new(
+        marker["directory"]
+            .as_str()
+            .ok_or("Invalid installation path")?,
+    );
     let parts: Vec<_> = relative.components().collect();
-    if parts.len() != 2 || parts[0].as_os_str() != "installations"
-        || !parts[1].as_os_str().to_str().is_some_and(|s| s.len() == 32
-            && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))) {
+    if parts.len() != 2
+        || parts[0].as_os_str() != "installations"
+        || !parts[1].as_os_str().to_str().is_some_and(|s| {
+            s.len() == 32
+                && s.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+    {
         return Err("Invalid installation path".into());
     }
     let assets = base.join(relative).join("assets");
-    if !assets.vfs_is_dir() { return Ok(None); }
-    if !assets.vfs_canonicalize().map_err(|e| e.to_string())?
-        .starts_with(base.vfs_canonicalize().map_err(|e| e.to_string())?) {
+    if !assets.vfs_is_dir() {
+        return Ok(None);
+    }
+    if !assets
+        .vfs_canonicalize()
+        .map_err(|e| e.to_string())?
+        .starts_with(base.vfs_canonicalize().map_err(|e| e.to_string())?)
+    {
         return Err("Installation escapes its package data directory".into());
     }
     Ok(Some((assets, marker)))
 }
 
 pub(crate) fn asset_root() -> Result<PathBuf, String> {
-    if std::env::args_os().any(|arg| arg == "--assets") { return Ok(PathBuf::from("assets")); }
+    if std::env::args_os().any(|arg| arg == "--assets") {
+        return Ok(PathBuf::from("assets"));
+    }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let root = exe.parent().ok_or("No executable directory")?;
     let base = root.join("data");
     let mut expected_customiser = None;
     let expected = match skate_vfs::read(root.join("release.json")) {
         Ok(bytes) => {
-            let text = std::str::from_utf8(&bytes).map_err(|e| e.to_string())?.trim_start_matches('\u{feff}');
-            let release: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+            let text = std::str::from_utf8(&bytes)
+                .map_err(|e| e.to_string())?
+                .trim_start_matches('\u{feff}');
+            let release: serde_json::Value =
+                serde_json::from_str(text).map_err(|e| e.to_string())?;
             expected_customiser = release["character_customiser"].as_str().map(str::to_owned);
             release.get("asset_pipelines").cloned()
         }
@@ -44,11 +68,19 @@ pub(crate) fn asset_root() -> Result<PathBuf, String> {
     };
     let existing = installed(&base)?;
     if let Some((assets, marker)) = &existing {
-        if expected.as_ref().is_none_or(|versions| marker.get("pipelines") == Some(versions))
+        if expected
+            .as_ref()
+            .is_none_or(|versions| marker.get("pipelines") == Some(versions))
             && assets.join("private/game.json").vfs_is_file()
-            && marker.get("outputs").is_none_or(|groups| groups.as_object().is_some_and(|groups|
-                groups.values().all(|files| receipt_present(assets.parent().unwrap(), files))))
-            && customiser_current(assets, expected_customiser.as_deref()) {
+            && marker.get("outputs").is_none_or(|groups| {
+                groups.as_object().is_some_and(|groups| {
+                    groups
+                        .values()
+                        .all(|files| receipt_present(assets.parent().unwrap(), files))
+                })
+            })
+            && customiser_current(assets, expected_customiser.as_deref())
+        {
             return Ok(assets.clone());
         }
     }
@@ -58,15 +90,26 @@ pub(crate) fn asset_root() -> Result<PathBuf, String> {
     }
     let mut command = Command::new(setup);
     command.arg("--base").arg(&base).arg("--game-exe").arg(&exe);
-    if existing.is_some() { command.arg("--refresh"); }
-    #[cfg(windows)] {
+    if existing.is_some() {
+        command.arg("--refresh");
+    }
+    #[cfg(windows)]
+    {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
-    let status = command.status().map_err(|e| format!("Could not start setup: {e}"))?;
-    if !status.success() { return Err("Setup was cancelled or did not complete".into()); }
-    let (assets, marker) = installed(&base)?.ok_or("Setup did not publish a complete installation")?;
-    if expected.as_ref().is_some_and(|versions| marker.get("pipelines") != Some(versions)) {
+    let status = command
+        .status()
+        .map_err(|e| format!("Could not start setup: {e}"))?;
+    if !status.success() {
+        return Err("Setup was cancelled or did not complete".into());
+    }
+    let (assets, marker) =
+        installed(&base)?.ok_or("Setup did not publish a complete installation")?;
+    if expected
+        .as_ref()
+        .is_some_and(|versions| marker.get("pipelines") != Some(versions))
+    {
         return Err("Setup helper does not match this release's asset extractors. Unpack the complete package.".into());
     }
     if !customiser_current(&assets, expected_customiser.as_deref()) {
@@ -77,44 +120,80 @@ pub(crate) fn asset_root() -> Result<PathBuf, String> {
 
 fn customiser_current(assets: &Path, expected: Option<&str>) -> bool {
     expected.is_none_or(|expected| {
-        let degraded = skate_vfs::read(assets.join("private/customisation/customiser-availability.json")).ok()
-            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
-        if let Some(v) = degraded.filter(|v| v["version"].as_u64()==Some(1)
-            && v["fingerprint"].as_str()==Some(expected)) {
-            if v["status"]=="unavailable" { return true; }
-            if v["status"]=="retained" {
-                let directory=crate::customiser_parts::asset_directory(assets);
-                return ["catalog","library","menu","lighting","roster"].iter().all(|stage|
-                    skate_vfs::read(directory.join(format!("{stage}-complete.json"))).ok()
-                        .and_then(|bytes|serde_json::from_slice::<serde_json::Value>(&bytes).ok())
-                        .is_some_and(|v|receipt_present(&directory,&v["files"])));
+        let degraded =
+            skate_vfs::read(assets.join("private/customisation/customiser-availability.json"))
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
+        if let Some(v) = degraded.filter(|v| {
+            v["version"].as_u64() == Some(1) && v["fingerprint"].as_str() == Some(expected)
+        }) {
+            if v["status"] == "unavailable" {
+                return true;
+            }
+            if v["status"] == "retained" {
+                let directory = crate::customiser_parts::asset_directory(assets);
+                return ["catalog", "library", "menu", "lighting", "roster"]
+                    .iter()
+                    .all(|stage| {
+                        skate_vfs::read(directory.join(format!("{stage}-complete.json")))
+                            .ok()
+                            .and_then(|bytes| {
+                                serde_json::from_slice::<serde_json::Value>(&bytes).ok()
+                            })
+                            .is_some_and(|v| receipt_present(&directory, &v["files"]))
+                    });
             }
         }
-        skate_vfs::read(assets.join("private/customisation/current.json")).ok()
+        skate_vfs::read(assets.join("private/customisation/current.json"))
+            .ok()
             .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
-            .is_some_and(|v| v["version"].as_u64() == Some(1) && v["fingerprint"].as_str() == Some(expected)
-                && v["set"].as_str().is_some_and(|s| s.len() == 32 && s.bytes().all(|b| b.is_ascii_hexdigit())))
-            && ["library-v3.json", "extra-menu.json", "native-lighting.json", "native-roster/complete.json"].iter()
-                .all(|name| crate::customiser_parts::asset_directory(assets).join(name).vfs_is_file())
-            && ["catalog", "library", "menu", "lighting", "roster"].iter().all(|stage| {
-                let directory = crate::customiser_parts::asset_directory(assets);
-                skate_vfs::read(directory.join(format!("{stage}-complete.json"))).ok()
-                    .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
-                    .is_some_and(|v| receipt_present(&directory, &v["files"]))
+            .is_some_and(|v| {
+                v["version"].as_u64() == Some(1)
+                    && v["fingerprint"].as_str() == Some(expected)
+                    && v["set"]
+                        .as_str()
+                        .is_some_and(|s| s.len() == 32 && s.bytes().all(|b| b.is_ascii_hexdigit()))
             })
+            && [
+                "library-v3.json",
+                "extra-menu.json",
+                "native-lighting.json",
+                "native-roster/complete.json",
+            ]
+            .iter()
+            .all(|name| {
+                crate::customiser_parts::asset_directory(assets)
+                    .join(name)
+                    .vfs_is_file()
+            })
+            && ["catalog", "library", "menu", "lighting", "roster"]
+                .iter()
+                .all(|stage| {
+                    let directory = crate::customiser_parts::asset_directory(assets);
+                    skate_vfs::read(directory.join(format!("{stage}-complete.json")))
+                        .ok()
+                        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                        .is_some_and(|v| receipt_present(&directory, &v["files"]))
+                })
     })
 }
 
 // Cheap launch-time completeness check. Setup verifies SHA-256 before reuse;
 // hashing every map on every game launch would read gigabytes unnecessarily.
 fn receipt_present(root: &Path, files: &serde_json::Value) -> bool {
-    files.as_object().is_some_and(|files| !files.is_empty() && files.iter().all(|(name, entry)| {
-        let relative = Path::new(name);
-        !relative.is_absolute()
-            && relative.components().all(|c| matches!(c, std::path::Component::Normal(_)))
-            && skate_vfs::metadata(root.join(relative)).ok()
-                .is_some_and(|m| m.is_file() && Some(m.len()) == entry["size"].as_u64())
-    }))
+    files.as_object().is_some_and(|files| {
+        !files.is_empty()
+            && files.iter().all(|(name, entry)| {
+                let relative = Path::new(name);
+                !relative.is_absolute()
+                    && relative
+                        .components()
+                        .all(|c| matches!(c, std::path::Component::Normal(_)))
+                    && skate_vfs::metadata(root.join(relative))
+                        .ok()
+                        .is_some_and(|m| m.is_file() && Some(m.len()) == entry["size"].as_u64())
+            })
+    })
 }
 
 #[cfg(test)]
@@ -122,24 +201,48 @@ mod tests {
     use super::*;
     #[test]
     fn acknowledged_optional_failure_is_versioned_and_retained_data_is_checked() {
-        let root = skate_vfs::temp_dir().join(format!("sk8-availability-{}-{}", skate_vfs::process_id(),
-            skate_vfs::time::SystemTime::now().duration_since(skate_vfs::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let root = std::env::temp_dir().join(format!(
+            "sk8-availability-{}-{}",
+            std::process::id(),
+            skate_vfs::time::SystemTime::now()
+                .duration_since(skate_vfs::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         let base = root.join("private/customisation");
         skate_vfs::create_dir_all(&base).unwrap();
         let availability = base.join("customiser-availability.json");
-        skate_vfs::write(&availability, br#"{"version":1,"fingerprint":"new","status":"unavailable"}"#).unwrap();
+        skate_vfs::write(
+            &availability,
+            br#"{"version":1,"fingerprint":"new","status":"unavailable"}"#,
+        )
+        .unwrap();
         assert!(customiser_current(&root, Some("new")));
         assert!(!customiser_current(&root, Some("future")));
-        assert_eq!(crate::customiser_parts::asset_directory(&root), base.join("unavailable"));
-        skate_vfs::write(&availability, br#"{"version":1,"fingerprint":"new","status":"retained"}"#).unwrap();
+        assert_eq!(
+            crate::customiser_parts::asset_directory(&root),
+            base.join("unavailable")
+        );
+        skate_vfs::write(
+            &availability,
+            br#"{"version":1,"fingerprint":"new","status":"retained"}"#,
+        )
+        .unwrap();
         assert!(!customiser_current(&root, Some("new")));
-        skate_vfs::write(base.join("current.json"), br#"{"set":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#).unwrap();
+        skate_vfs::write(
+            base.join("current.json"),
+            br#"{"set":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#,
+        )
+        .unwrap();
         let directory = base.join("sets/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         skate_vfs::create_dir_all(&directory).unwrap();
         skate_vfs::write(directory.join("payload"), b"ok").unwrap();
         for stage in ["catalog", "library", "menu", "lighting", "roster"] {
-            skate_vfs::write(directory.join(format!("{stage}-complete.json")),
-                br#"{"files":{"payload":{"size":2}}}"#).unwrap();
+            skate_vfs::write(
+                directory.join(format!("{stage}-complete.json")),
+                br#"{"files":{"payload":{"size":2}}}"#,
+            )
+            .unwrap();
         }
         assert!(customiser_current(&root, Some("new")));
         skate_vfs::remove_file(directory.join("payload")).unwrap();
@@ -148,9 +251,15 @@ mod tests {
     }
     #[test]
     fn receipts_reject_missing_files_empty_lists_and_traversal() {
-        let root = skate_vfs::temp_dir();
+        let root = std::env::temp_dir();
         assert!(!receipt_present(&root, &serde_json::json!({})));
-        assert!(!receipt_present(&root, &serde_json::json!({"../missing": {"size": 0}})));
-        assert!(!receipt_present(&root, &serde_json::json!({"nonexistent-skate-setup-test": {"size": 0}})));
+        assert!(!receipt_present(
+            &root,
+            &serde_json::json!({"../missing": {"size": 0}})
+        ));
+        assert!(!receipt_present(
+            &root,
+            &serde_json::json!({"nonexistent-skate-setup-test": {"size": 0}})
+        ));
     }
 }

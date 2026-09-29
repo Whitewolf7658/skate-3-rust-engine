@@ -4,6 +4,7 @@
 //! - `SKATE_MAP_BYTES` + `SKATE_MAP_NAME`: the chosen `maps/<name>.skate`
 //! - `SKATE_ARGS`: optional command-line arguments (strings)
 //! Everything lands in the in-memory filesystem below [`ROOT`].
+use skate_vfs::PathExt as _;
 use bevy::asset::io::{
     AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader, VecReader,
 };
