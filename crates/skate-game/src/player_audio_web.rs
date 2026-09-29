@@ -56,6 +56,8 @@ struct Bed {
 #[derive(Default)]
 struct Edges {
     grounded: bool,
+    /// Physics tick of the last take-off (60 Hz).
+    takeoff_tick: u64,
     pushing: bool,
     trick: Option<String>,
     started: bool,
@@ -199,7 +201,7 @@ impl WebPlayerAudio {
         let level = (speed / 12.0).clamp(0.0, 1.0);
         for (name, bed) in self.beds.iter_mut() {
             let (gain, pitch) = match *name {
-                n if n == roll && rolling => (0.15 + 0.55 * level, 0.75 + 0.5 * level),
+                n if n == roll && rolling => (0.15 + 0.6 * level, 0.9 + 0.25 * level),
                 "grind_metal" if o.grinding && o.grind_audio_surface == 9 => (0.35 + 0.4 * level, 0.9 + 0.2 * level),
                 "grind_concrete" if o.grinding && o.grind_audio_surface != 9 => (0.35 + 0.4 * level, 0.9 + 0.2 * level),
                 "powerslide" if o.powersliding && o.grounded => (0.5 * level + 0.1, 1.0),
@@ -210,7 +212,7 @@ impl WebPlayerAudio {
         }
         if !self.edges.started {
             // The first observation only primes the edges.
-            self.edges = Edges { grounded: o.grounded, pushing: o.foot_push_speed > 0.0, trick: o.trick_identifier.clone(), started: true };
+            self.edges = Edges { grounded: o.grounded, takeoff_tick: o.tick, pushing: o.foot_push_speed > 0.0, trick: o.trick_identifier.clone(), started: true };
             return;
         }
         if self.edges.grounded && !o.grounded && !o.wiping_out {
@@ -219,8 +221,12 @@ impl WebPlayerAudio {
         for event in &o.events {
             match event {
                 PhysicsEvent::Landing => {
-                    let impact = (o.landing_impact_speed / 6.0).clamp(0.2, 1.0);
-                    self.play(if o.landing_impact_speed > 3.5 { "land_hard" } else { "land" }, impact, 1.0);
+                    // Retail: the impact at a fixed level, plus one ladder layer
+                    // chosen by time in air (0.75 s) -- harder sounds different,
+                    // not louder (LandingTuning in skate-data audio/splice.rs).
+                    let air_seconds = o.tick.saturating_sub(self.edges.takeoff_tick) as f32 / 60.0;
+                    self.play("land_impact", 1.0, 1.0);
+                    self.play(if air_seconds >= 0.75 { "land_hard" } else { "land_soft" }, 1.0, 1.0);
                 }
                 PhysicsEvent::Wipeout => self.play("bail", 1.0, 1.0),
                 _ => {}
@@ -241,6 +247,9 @@ impl WebPlayerAudio {
         }
         if !o.frontend_sounds.is_empty() {
             self.play("chime", 0.7, 1.0);
+        }
+        if self.edges.grounded && !o.grounded {
+            self.edges.takeoff_tick = o.tick;
         }
         self.edges.grounded = o.grounded;
         self.edges.pushing = pushing;
