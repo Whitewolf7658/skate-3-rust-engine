@@ -218,19 +218,26 @@ impl WebPlayerAudio {
         if self.edges.grounded && !o.grounded && !o.wiping_out {
             self.play("pop", 0.8, 1.0);
         }
+        let air_seconds = o.tick.saturating_sub(self.edges.takeoff_tick) as f32 / 60.0;
+        let mut landed = false;
         for event in &o.events {
             match event {
                 PhysicsEvent::Landing => {
+                    landed = true;
                     // Retail: the impact at a fixed level, plus one ladder layer
                     // chosen by time in air (0.75 s) -- harder sounds different,
                     // not louder (LandingTuning in skate-data audio/splice.rs).
-                    let air_seconds = o.tick.saturating_sub(self.edges.takeoff_tick) as f32 / 60.0;
                     self.play("land_impact", 1.0, 1.0);
                     self.play(if air_seconds >= 0.75 { "land_hard" } else { "land_soft" }, 1.0, 1.0);
                 }
                 PhysicsEvent::Wipeout => self.play("bail", 1.0, 1.0),
                 _ => {}
             }
+        }
+        // Touching down after a real air always lands audibly, even when the
+        // physics step reports the contact without a Landing event.
+        if !landed && !self.edges.grounded && o.grounded && !o.wiping_out && air_seconds >= 0.2 {
+            self.play("land_impact", 1.0, 1.0);
         }
         if o.footstep_strength > 0.0 {
             self.play("footstep", o.footstep_strength.clamp(0.2, 1.0), 1.0);
