@@ -51,6 +51,16 @@ entry u32 path length, UTF-8 relative path, u64 size, bytes (little endian).
   fails the same way, so the skater falls there on every platform.
 - Choosing another map in the in-game menu or the page's picker reloads the
   page with `?map=` (no loader threads on the web).
+- Community maps are not in the site: the page fetches them when chosen and
+  hands them over the same way (`SKATE_MAP_NAME` + `SKATE_MAP_BYTES`). Sources:
+  the skatemods.com catalog (`GET /api/maps`, entries with a `skate` file;
+  `?smap=<id>` loads `/api/maps/<id>/files/<file>?cors=1`), any URL that allows
+  cross-origin reads (`?mapurl=https://.../park.skate`), or a local file
+  ("Open .skate file...", kept in Cache Storage across the reload, `?local=`).
+  `?skatemods=<origin>` points the catalog at another instance (local tests).
+  A map whose name matches a built-in one gets `_community` appended so it
+  does not pick up that map's props, sky or teleports. The one community map
+  being played stays in the cache.
 - Web-only differences: no Lua mods, multiplayer, updater, crash reporter,
   custom-model tools or trace capture; frame pacing is left to the browser;
   Bevy GPU occlusion culling defaults off. Skate audio stays silent because
