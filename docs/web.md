@@ -61,7 +61,17 @@ entry u32 path length, UTF-8 relative path, u64 size, bytes (little endian).
   A map whose name matches a built-in one gets `_community` appended so it
   does not pick up that map's props, sky or teleports. The one community map
   being played stays in the cache.
-- Web-only differences: no Lua mods, multiplayer, updater, crash reporter,
+- Multiplayer: `?room=CODE` (the page's Multiplayer button makes one) joins a
+  room on the WebSocket relay (`skate3-cleanroom/relay`, a Cloudflare Durable
+  Object; `?relay=wss://...` overrides the default `wss://skatemods.com/rooms`).
+  `web/net.js` joins before the engine starts and sets `SKATE_NET` (own member
+  id, host member id, session); `multiplayer::transport::Web` then runs the
+  normal skate-net session (up to 10 players, the oldest member hosts) over
+  `skateNetSend` / `skateNetPoll`. Members spawn 1.5 m apart. Everyone has to be
+  on the same map; switching map keeps `?room=`. If the host leaves, the others
+  reload to start a new session. The button is hidden when the relay does not
+  answer `/health`.
+- Web-only differences: no Lua mods, Steam or UDP multiplayer, updater, crash reporter,
   custom-model tools or trace capture; frame pacing is left to the browser;
   Bevy GPU occlusion culling defaults off. Skate audio stays silent because
   its XMA decoder runs `ffmpeg` as a child process.

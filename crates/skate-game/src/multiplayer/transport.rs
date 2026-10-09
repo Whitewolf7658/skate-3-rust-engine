@@ -28,6 +28,53 @@ pub(super) trait Transport: Send + Sync {
         false
     }
 }
+/// Browser rooms: the page (web/net.js) holds a WebSocket to a room relay that
+/// forwards opaque datagrams between room members. Peers are the relay's small
+/// integer member ids. `skateNetSend(peer, bytes)` queues one datagram,
+/// `skateNetPoll()` returns `[[peer, Uint8Array], ...]` received since the last
+/// call and `skateNetStatus()` a line for the HUD.
+#[cfg(target_arch = "wasm32")]
+pub(super) struct Web;
+#[cfg(target_arch = "wasm32")]
+impl Web {
+    fn function(name: &str) -> io::Result<js_sys::Function> {
+        use wasm_bindgen::JsCast as _;
+        js_sys::Reflect::get(&js_sys::global(), &name.into())
+            .ok()
+            .and_then(|f| f.dyn_into::<js_sys::Function>().ok())
+            .ok_or_else(|| io::Error::other(format!("{name} is missing (load the page through web/index.html)")))
+    }
+}
+#[cfg(target_arch = "wasm32")]
+impl Transport for Web {
+    fn send(&mut self, peer: u64, data: &[u8]) -> io::Result<()> {
+        let bytes = js_sys::Uint8Array::from(data);
+        Self::function("skateNetSend")?
+            .call2(&wasm_bindgen::JsValue::NULL, &(peer as f64).into(), &bytes)
+            .map(|_| ())
+            .map_err(|e| io::Error::other(format!("{e:?}")))
+    }
+    fn receive(&mut self) -> io::Result<Vec<(u64, Vec<u8>)>> {
+        let list = Self::function("skateNetPoll")?
+            .call0(&wasm_bindgen::JsValue::NULL)
+            .map_err(|e| io::Error::other(format!("{e:?}")))?;
+        let mut output = Vec::new();
+        for item in js_sys::Array::from(&list).iter() {
+            let pair = js_sys::Array::from(&item);
+            let Some(peer) = pair.get(0).as_f64() else { continue };
+            let bytes = js_sys::Uint8Array::new(&pair.get(1));
+            output.push((peer as u64, bytes.to_vec()));
+        }
+        Ok(output)
+    }
+    fn status(&self) -> String {
+        Self::function("skateNetStatus")
+            .ok()
+            .and_then(|f| f.call0(&wasm_bindgen::JsValue::NULL).ok())
+            .and_then(|v| v.as_string())
+            .unwrap_or_else(|| "Browser room".into())
+    }
+}
 pub(super) fn endpoint(addr: SocketAddr) -> io::Result<u64> {
     match addr {
         SocketAddr::V4(a) => Ok(((u32::from(*a.ip()) as u64) << 16) | a.port() as u64),

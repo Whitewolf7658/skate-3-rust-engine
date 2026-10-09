@@ -86,6 +86,13 @@ pub(crate) fn install() -> Result<Vec<OsString>, String> {
         }
         None => args.push("--test-world".into()),
     }
+    // Room members spread out sideways (1.5 m apart) instead of spawning inside each other.
+    if let Some((me, _, _)) = net_room() {
+        let offset = ((me.saturating_sub(1) % 10) as f32) * 1.5;
+        if offset != 0. {
+            args.extend([OsString::from("--spawn-offset"), offset.to_string().into()]);
+        }
+    }
     Ok(args)
 }
 
@@ -99,6 +106,20 @@ fn start_teleport(map: &str) -> Option<String> {
     let usable: Vec<_> = destinations.iter().filter(|d| d.map == map && d.matrix.is_some()).collect();
     if let Some(id) = wanted { return usable.iter().any(|d| d.id == id).then_some(id); }
     usable.iter().find(|d| d.id.ends_with("progression")).or(usable.first()).map(|d| d.id.clone())
+}
+
+/// The browser room the page joined before startup: (own member id, host
+/// member id, session number). The session comes as 16 hex digits.
+pub(crate) fn net_room() -> Option<(u64, u64, u64)> {
+    let room = global("SKATE_NET");
+    if room.is_undefined() || room.is_null() {
+        return None;
+    }
+    let get = |key: &str| Reflect::get(&room, &JsValue::from_str(key)).ok();
+    let me = get("self")?.as_f64()? as u64;
+    let host = get("host")?.as_f64()? as u64;
+    let session = u64::from_str_radix(&get("session")?.as_string()?, 16).ok()?;
+    (session != 0).then_some((me, host, session))
 }
 
 pub(crate) fn log(message: &str) { web_sys::console::log_1(&message.into()); }

@@ -359,6 +359,13 @@ impl Plugin for MultiplayerPlugin {
                 Err(e) => net.status = format!("Local multiplayer could not start: {e}"),
             }
         }
+        // Browser room (web/net.js joined it before the engine started):
+        // SKATE_NET = { self, host, session } with relay member ids.
+        #[cfg(target_arch = "wasm32")]
+        if let Some((me, host, session)) = crate::web::net_room() {
+            crate::web::log(&format!("skate3rust: browser room member {me}, host {host}, session {session:016x}"));
+            net.start(Box::new(transport::Web), session, (me != host).then_some(host));
+        }
         app.insert_resource(net)
             .add_systems(
                 PreUpdate,
