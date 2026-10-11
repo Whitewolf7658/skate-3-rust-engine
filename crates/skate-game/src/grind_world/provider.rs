@@ -1,6 +1,7 @@
 //! Static stock assets only. Registration follows package source occurrence
 //! order; native octree order is retained within each registered section.
 use super::{
+    derive,
     octree::{Bounds, Octree},
     spline,
 };
@@ -38,35 +39,15 @@ impl StaticProvider {
     /// Missing provenance is an explicit conversion prerequisite, not a ray miss.
     pub fn new(map: Option<&SkateMap>) -> Result<Self, String> {
         let Some(map) = map else {
-            return Ok(Self {
-                primitives: vec![],
-                metadata: vec![],
-                rail_guids: vec![],
-                assets: vec![],
-                authored_bounds: vec![],
-                source_for_primitive: vec![],
-                source_rail_indices: vec![],
-            });
+            return Self::authored(&[]);
         };
-        if map.rails.is_empty() {
-            return Ok(Self {
-                primitives: vec![],
-                metadata: vec![],
-                rail_guids: vec![],
-                assets: vec![],
-                authored_bounds: vec![],
-                source_for_primitive: vec![],
-                source_rail_indices: vec![],
-            });
-        }
-        if map.rails.iter().all(|rail| rail.native.is_none()) {
-            return Self::authored(&map.rails);
-        }
-        // Custom maps can carry native rail payloads without the stock WMET
-        // identity manifest (e.g. converted community maps); grind them as authored.
-        if !map.extensions.iter().any(|e| e.tag == *b"WMET") {
-            bevy::log::warn!("Map rails have native payloads but no WMET manifest; using authored rails");
-            return Self::authored(&map.rails);
+        // Stock maps carry native rail payloads plus the WMET identity manifest.
+        // Everything else is a custom map: its own rails, if any, are grinded
+        // as authored, and edges are derived from its triangle collision.
+        if map.rails.iter().all(|rail| rail.native.is_none())
+            || !map.extensions.iter().any(|e| e.tag == *b"WMET")
+        {
+            return Self::custom(map);
         }
         let mut metadata = map.extensions.iter().filter(|e| e.tag == *b"WMET");
         let extension = metadata
@@ -189,6 +170,60 @@ impl StaticProvider {
             source_for_primitive,
             source_rail_indices,
         })
+    }
+
+    /// The map's own rails plus edges found in its collision triangles. Maps
+    /// whose collision is an embedded RWCM archive get no derived edges.
+    fn custom(map: &SkateMap) -> Result<Self, String> {
+        let own: Vec<_> = map
+            .rails
+            .iter()
+            .map(|rail| {
+                let mut points = rail.points.clone();
+                if rail.closed && points.first() != points.last() {
+                    points.extend(points.first().copied());
+                }
+                points
+            })
+            .collect();
+        let triangles: Vec<_> = map.geometry.collision.iter().map(|t| t.points).collect();
+        // Without triangles nothing can be judged; the map's rails stand as authored.
+        let derived = if triangles.is_empty() {
+            derive::Derived {
+                own_blocked: vec![false; own.len()],
+                rails: Vec::new(),
+            }
+        } else {
+            derive::rails(&triangles, &own)
+        };
+        eprintln!(
+            "SKATE_GRIND_DERIVED map_rails={} too_wide={} derived={} triangles={}",
+            map.rails.len(),
+            derived.own_blocked.iter().filter(|b| **b).count(),
+            derived.rails.len(),
+            triangles.len()
+        );
+        let rails: Vec<_> = map
+            .rails
+            .iter()
+            .zip(&derived.own_blocked)
+            .filter(|(rail, blocked)| rail.native.is_some() || !**blocked)
+            .map(|(rail, _)| skate_data::skate_map::Rail {
+                name: rail.name.clone(),
+                closed: rail.closed,
+                points: rail.points.clone(),
+                native: rail.native.clone(),
+            })
+            .chain(derived.rails.into_iter().enumerate().map(|(i, points)| {
+                skate_data::skate_map::Rail {
+                    name: format!("derived_edge_{i}"),
+                    closed: false,
+                    points,
+                    native: None,
+                }
+            }))
+            .collect();
+        Self::authored(&rails)
     }
 
     /// Explicit host-authored polylines have no retail source section identity.

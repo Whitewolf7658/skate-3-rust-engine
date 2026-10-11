@@ -179,6 +179,7 @@ fn box_faces(out: &mut Vec<[Vector3; 4]>, min: Vector3, max: Vector3) {
     ]);
 }
 
+mod derive;
 mod octree;
 mod provider;
 mod spline;
