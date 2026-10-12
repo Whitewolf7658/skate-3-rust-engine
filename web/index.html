@@ -42,10 +42,41 @@
   #mapcredit[href]:hover { color: var(--accent); }
   select { max-width: 60vw; background: #1c2530; color: var(--fg); border: 1px solid #2d3a47; border-radius: 4px; padding: 2px 4px; }
   #help { color: var(--muted); font-size: 12px; margin-top: 12px; }
+  #controls-guide { position: fixed; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center; background: #050a10db; padding: 20px; box-sizing: border-box; }
+  #controls-guide.open { display: flex; }
+  .controls-panel { width: min(540px, 100%); max-height: 86vh; overflow-y: auto; background: #141d28; border: 1px solid #354459; border-radius: 12px; padding: 22px; box-shadow: 0 20px 70px #0008; }
+  .controls-panel h2 { margin: 0 0 12px; font-size: 22px; }
+  .controls-panel table { width: 100%; border-collapse: collapse; }
+  .controls-panel td { padding: 9px 6px; border-bottom: 1px solid #303d4a; }
+  .controls-panel td:last-child { text-align: right; color: #b9dbe5; }
+  .controls-panel p { color: var(--muted); }
+  #controls-open { position: fixed; top: 12px; right: 12px; z-index: 7; padding: 7px 12px; background: #141d28df; }
+  #controls-close { margin-top: 16px; padding: 8px 18px; }
+
 </style>
 </head>
 <body>
 <div id="game"><canvas id="bevy" tabindex="0"></canvas></div>
+<button type="button" id="controls-open">Controls · F1</button>
+<div id="controls-guide" role="dialog" aria-modal="true" aria-label="Keyboard and mouse controls" aria-hidden="true">
+  <div class="controls-panel">
+    <h2>Keyboard & Mouse</h2>
+    <p>Hold the right mouse button and drag to control the trick stick. Move down, then up to flick an ollie. Arrow keys remain available as an alternative.</p>
+    <table>
+      <tr><td>Move and steer</td><td>W A S D</td></tr>
+      <tr><td>Trick stick</td><td>Right mouse drag / Arrow keys</td></tr>
+      <tr><td>Push</td><td>Left Shift</td></tr>
+      <tr><td>Interact / action</td><td>Space / E / F</td></tr>
+      <tr><td>Grab / shoulder inputs</td><td>Q / R</td></tr>
+      <tr><td>Triggers</td><td>Z / C</td></tr>
+      <tr><td>Pause / game menu</td><td>Escape / Enter</td></tr>
+      <tr><td>Back</td><td>Backspace</td></tr>
+      <tr><td>Controls guide</td><td>F1</td></tr>
+    </table>
+    <p>Trick results depend on stance, timing and the engine's existing Flickit recognition. This patch does not change skating physics or add mouse-camera movement.</p>
+    <button type="button" id="controls-close">Close</button>
+  </div>
+</div>
 <div id="mapbar"><a id="mapcredit" target="_blank" rel="noopener" hidden></a>
   <label for="map">Map</label><select id="map"></select><input id="mapfile" type="file" accept=".skate" hidden>
   <select id="roommenu" hidden title="Skate with friends: up to 10 players on the same map"></select>
@@ -64,6 +95,7 @@
     Phones/tablets: on-screen pad (Bike = F9, Y gets on, RT throttle, hold LB/RB + right stick for tricks).<br>
     Bike model: "KTM 450 EXC" by mx-3d (Sketchfab), CC BY 4.0. Skate sounds: CC0 recordings from Freesound (list in assets/clean-audio/CREDITS.json).</div>
 </div></div>
+<script defer src="./mouse-controls.js"></script>
 <script type="module" src="./loader.js"></script>
 <script type="module" src="./touch.js"></script>
 </body>
