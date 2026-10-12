@@ -234,11 +234,22 @@ pub(crate) mod web {
             right: [axis(n(5)), axis(n(6))],
         })
     }
+    fn mouse_stick() -> Option<[i16; 2]> {
+        let value = js_sys::Reflect::get(&js_sys::global(), &"skateMouseStick".into()).ok()?;
+        let values = value.dyn_into::<js_sys::Array>().ok()?;
+        if values.length() < 2 { return None; }
+        let x = values.get(0).as_f64()? as f32;
+        let y = values.get(1).as_f64()? as f32;
+        Some([axis(x), axis(y)])
+    }
     /// PreUpdate, before `input::poll_controllers`.
     pub(crate) fn sample(keys: Option<Res<ButtonInput<KeyCode>>>, gamepads: Query<&Gamepad>) {
         let mut states = [None; 4];
         let mut pads = gamepads.iter().map(gamepad_state);
-        let keyboard = keys.map(|k| keyboard_state(&k)).unwrap_or_default();
+        let mut keyboard = keys.map(|k| keyboard_state(&k)).unwrap_or_default();
+        if let Some(stick) = mouse_stick() {
+            if stick != [0, 0] { keyboard.right = stick; }
+        }
         let keyboard = match touch_state() { Some(touch) => merge(keyboard, touch), None => keyboard };
         states[0] = Some(match pads.next() { Some(pad) => merge(keyboard, pad), None => keyboard });
         for (slot, pad) in states[1..].iter_mut().zip(pads) { *slot = Some(pad); }
