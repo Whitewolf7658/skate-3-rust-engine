@@ -1,0 +1,70 @@
+
+name: Build WebGPU Engine
+
+on:
+  push:
+    branches:
+      - cleanroom-web
+    paths:
+      - .github/workflows/web-engine.yml
+      - Cargo.toml
+      - Cargo.lock
+      - crates/**
+      - vendor/**
+      - web/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CARGO_TARGET_DIR: target-web
+      CARGO_INCREMENTAL: "0"
+      CARGO_BUILD_JOBS: "2"
+
+    steps:
+      - name: Check out browser branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache compilation files
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target-web
+
+      - name: Install wasm-bindgen
+        run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
+
+      - name: Compile browser engine
+        run: cargo build -p skate-game --bin skate3rust --profile web --target wasm32-unknown-unknown --no-default-features -j2 --locked
+
+      - name: Prepare browser files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp -R web/. dist/
+          wasm-bindgen \
+            --target web \
+            --out-dir dist \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/web/skate3rust.wasm"
+          test -s dist/skate3rust.js
+          test -s dist/skate3rust_bg.wasm
+
+      - name: Upload engine artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: skate3-webgpu-engine
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
